@@ -1,0 +1,49 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/repo:/app/repo
+      - ./backend/ansible_work:/app/ansible_work
+    environment:
+      - CORS_ORIGINS=["http://localhost:5173","http://localhost"]
+    networks:
+      - tantor-net
+    depends_on:
+      - node1
+      - node2
+    restart: unless-stopped
+
+  node1:
+    build:
+      context: ./test-vm
+      dockerfile: Dockerfile
+    hostname: node1
+    networks:
+      tantor-net:
+        ipv4_address: 172.30.0.11
+    ports:
+      - "2201:22"
+    restart: unless-stopped
+
+  node2:
+    build:
+      context: ./test-vm
+      dockerfile: Dockerfile
+    hostname: node2
+    networks:
+      tantor-net:
+        ipv4_address: 172.30.0.12
+    ports:
+      - "2202:22"
+    restart: unless-stopped
+
+networks:
+  tantor-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24

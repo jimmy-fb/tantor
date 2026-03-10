@@ -1,0 +1,16 @@
+[Unit]
+Description=Kafka Connect Distributed
+After=network.target kafka.service
+
+[Service]
+Type=simple
+User=kafka
+Group=kafka
+Environment="KAFKA_HEAP_OPTS=-Xmx1G -Xms1G"
+ExecStart={{ kafka_home }}/bin/connect-distributed.sh {{ config_path }}
+Restart=on-failure
+RestartSec=10
+LimitNOFILE=100000
+
+[Install]
+WantedBy=multi-user.target

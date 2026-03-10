@@ -1,0 +1,60 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "system-metrics",
+    "title": "System Metrics",
+    "tags": ["tantor", "system"],
+    "timezone": "browser",
+    "refresh": "10s",
+    "panels": [
+      {
+        "title": "CPU Usage",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "100 - (avg by(instance) (rate(node_cpu_seconds_total{mode='idle'}[5m])) * 100)",
+            "legendFormat": "{{instance}}"
+          }
+        ]
+      },
+      {
+        "title": "Memory Usage",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+        "targets": [
+          {
+            "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100",
+            "legendFormat": "{{instance}}"
+          }
+        ]
+      },
+      {
+        "title": "Disk Usage",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+        "targets": [
+          {
+            "expr": "(1 - (node_filesystem_avail_bytes{mountpoint='/'} / node_filesystem_size_bytes{mountpoint='/'})) * 100",
+            "legendFormat": "{{instance}}"
+          }
+        ]
+      },
+      {
+        "title": "Network IO",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+        "targets": [
+          {
+            "expr": "rate(node_network_receive_bytes_total{device!='lo'}[5m])",
+            "legendFormat": "{{instance}} rx"
+          },
+          {
+            "expr": "rate(node_network_transmit_bytes_total{device!='lo'}[5m])",
+            "legendFormat": "{{instance}} tx"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,12 @@
+# Tantor-generated KRaft Controller Configuration
+
+node.id={{ node_id }}
+process.roles=controller
+
+controller.quorum.voters={{ quorum_voters }}
+
+listeners=CONTROLLER://:{{ controller_port }}
+controller.listener.names=CONTROLLER
+listener.security.protocol.map=CONTROLLER:PLAINTEXT
+
+log.dirs={{ log_dirs }}

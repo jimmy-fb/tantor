@@ -1,0 +1,29 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/tantor.db:/app/tantor.db
+      - ./backend/repo:/app/repo
+      - ./backend/ansible_work:/app/ansible_work
+      - backend-ssh:/root/.ssh
+    environment:
+      - DATABASE_URL=sqlite:///./tantor.db
+      - CORS_ORIGINS=["http://localhost","http://localhost:80"]
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile.prod
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  backend-ssh:

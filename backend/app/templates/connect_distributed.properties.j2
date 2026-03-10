@@ -1,0 +1,24 @@
+# Tantor-generated Kafka Connect Distributed Configuration
+
+bootstrap.servers={{ bootstrap_servers }}
+group.id={{ group_id }}
+
+key.converter=org.apache.kafka.connect.storage.StringConverter
+value.converter=org.apache.kafka.connect.json.JsonConverter
+value.converter.schemas.enable=false
+
+offset.storage.topic={{ group_id }}-offsets
+offset.storage.replication.factor=3
+offset.storage.partitions=25
+
+config.storage.topic={{ group_id }}-configs
+config.storage.replication.factor=3
+
+status.storage.topic={{ group_id }}-status
+status.storage.replication.factor=3
+status.storage.partitions=5
+
+rest.port={{ connect_port }}
+rest.advertised.port={{ connect_port }}
+
+plugin.path=/opt/kafka/plugins

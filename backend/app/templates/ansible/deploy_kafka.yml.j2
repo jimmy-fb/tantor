@@ -1,0 +1,249 @@
+---
+- name: Prepare Kafka on all hosts
+  hosts: all
+  become: true
+  tasks:
+    - name: Create kafka group
+      group:
+        name: kafka
+        system: true
+
+    - name: Create kafka user
+      user:
+        name: kafka
+        group: kafka
+        system: true
+        shell: /bin/false
+        create_home: false
+
+    - name: Create required directories
+      file:
+        path: "{{ '{{' }} item {{ '}}' }}"
+        state: directory
+        owner: kafka
+        group: kafka
+        mode: "0755"
+      loop:
+        - "{{ kafka_data_dir }}"
+        - "{{ kafka_log_dir }}"
+        - /opt
+
+    - name: Copy Kafka binary from Tantor server
+      copy:
+        src: "{{ kafka_binary_local_path }}"
+        dest: "/tmp/{{ kafka_binary_filename }}"
+
+    - name: Check if Kafka already extracted
+      stat:
+        path: "{{ kafka_install_dir }}/bin/kafka-server-start.sh"
+      register: kafka_bin
+
+    - name: Extract Kafka
+      unarchive:
+        src: "/tmp/{{ kafka_binary_filename }}"
+        dest: /opt/
+        remote_src: true
+      when: not kafka_bin.stat.exists
+
+    - name: Symlink Kafka home
+      file:
+        src: "/opt/{{ kafka_binary_filename | replace('.tgz', '') }}"
+        dest: "{{ kafka_install_dir }}"
+        state: link
+        force: true
+
+    - name: Set Kafka ownership
+      file:
+        path: "{{ kafka_install_dir }}/"
+        owner: kafka
+        group: kafka
+        recurse: true
+
+    - name: Clean up tarball
+      file:
+        path: "/tmp/{{ kafka_binary_filename }}"
+        state: absent
+
+{% if has_brokers %}
+- name: Configure and start Kafka brokers
+  hosts: brokers:broker_controllers
+  become: true
+  serial: 1
+  tasks:
+    - name: Upload broker configuration
+      copy:
+        src: "{{ configs_dir }}/{{ '{{' }} ansible_host {{ '}}' }}_{{ '{{' }} node_id {{ '}}' }}_server.properties"
+        dest: "{{ kafka_install_dir }}/config/server.properties"
+        owner: kafka
+        group: kafka
+        mode: "0644"
+
+    - name: Upload systemd unit
+      copy:
+        src: "{{ systemd_dir }}/{{ '{{' }} ansible_host {{ '}}' }}_{{ '{{' }} node_id {{ '}}' }}_kafka.service"
+        dest: /etc/systemd/system/kafka.service
+        mode: "0644"
+
+    - name: Reload systemd
+      systemd:
+        daemon_reload: true
+
+{% if cluster_mode == "kraft" %}
+    - name: Format KRaft storage
+      command: >
+        {{ kafka_install_dir }}/bin/kafka-storage.sh format
+        --cluster-id {{ cluster_uuid }}
+        -c {{ kafka_install_dir }}/config/server.properties
+        --ignore-formatted
+      become_user: kafka
+{% endif %}
+
+    - name: Enable and start Kafka
+      systemd:
+        name: kafka
+        enabled: true
+        state: started
+{% endif %}
+
+{% if has_controllers %}
+- name: Configure and start KRaft controllers
+  hosts: controllers
+  become: true
+  serial: 1
+  tasks:
+    - name: Upload controller configuration
+      copy:
+        src: "{{ configs_dir }}/{{ '{{' }} ansible_host {{ '}}' }}_{{ '{{' }} node_id {{ '}}' }}_server.properties"
+        dest: "{{ kafka_install_dir }}/config/server.properties"
+        owner: kafka
+        group: kafka
+        mode: "0644"
+
+    - name: Upload systemd unit
+      copy:
+        src: "{{ systemd_dir }}/{{ '{{' }} ansible_host {{ '}}' }}_{{ '{{' }} node_id {{ '}}' }}_kafka-kraft-controller.service"
+        dest: /etc/systemd/system/kafka-kraft-controller.service
+        mode: "0644"
+
+    - name: Reload systemd
+      systemd:
+        daemon_reload: true
+
+    - name: Format KRaft storage
+      command: >
+        {{ kafka_install_dir }}/bin/kafka-storage.sh format
+        --cluster-id {{ cluster_uuid }}
+        -c {{ kafka_install_dir }}/config/server.properties
+        --ignore-formatted
+      become_user: kafka
+
+    - name: Enable and start controller
+      systemd:
+        name: kafka-kraft-controller
+        enabled: true
+        state: started
+{% endif %}
+
+{% if has_ksqldb %}
+- name: Install and start ksqlDB
+  hosts: ksqldbs
+  become: true
+  tasks:
+    - name: Check if ksqlDB already installed
+      stat:
+        path: "{{ ksqldb_install_dir }}/bin/ksql-server-start"
+      register: ksqldb_bin
+
+    - name: Copy ksqlDB binary from Tantor server
+      copy:
+        src: "{{ ksqldb_binary_local_path }}"
+        dest: "/tmp/{{ ksqldb_binary_filename }}"
+      when: not ksqldb_bin.stat.exists
+
+    - name: Create ksqlDB install directory
+      file:
+        path: "{{ ksqldb_install_dir }}"
+        state: directory
+        owner: kafka
+        group: kafka
+      when: not ksqldb_bin.stat.exists
+
+    - name: Extract ksqlDB
+      shell: "tar xzf /tmp/{{ ksqldb_binary_filename }} -C {{ ksqldb_install_dir }} --strip-components=1"
+      when: not ksqldb_bin.stat.exists
+
+    - name: Set ksqlDB ownership
+      file:
+        path: "{{ ksqldb_install_dir }}"
+        owner: kafka
+        group: kafka
+        recurse: true
+
+    - name: Clean up ksqlDB tarball
+      file:
+        path: "/tmp/{{ ksqldb_binary_filename }}"
+        state: absent
+
+    - name: Create ksqlDB config directory
+      file:
+        path: "{{ ksqldb_install_dir }}/config"
+        state: directory
+        owner: kafka
+        group: kafka
+        mode: "0755"
+
+    - name: Upload ksqlDB configuration
+      copy:
+        src: "{{ configs_dir }}/{{ '{{' }} ansible_host {{ '}}' }}_{{ '{{' }} node_id {{ '}}' }}_ksql-server.properties"
+        dest: "{{ ksqldb_install_dir }}/config/ksql-server.properties"
+        owner: kafka
+        group: kafka
+        mode: "0644"
+
+    - name: Upload systemd unit
+      copy:
+        src: "{{ systemd_dir }}/{{ '{{' }} ansible_host {{ '}}' }}_{{ '{{' }} node_id {{ '}}' }}_ksqldb.service"
+        dest: /etc/systemd/system/ksqldb.service
+        mode: "0644"
+
+    - name: Reload and start ksqlDB
+      systemd:
+        name: ksqldb
+        daemon_reload: true
+        enabled: true
+        state: started
+{% endif %}
+
+{% if has_connect %}
+- name: Configure and start Kafka Connect
+  hosts: kafka_connects
+  become: true
+  tasks:
+    - name: Create plugins directory
+      file:
+        path: "{{ kafka_install_dir }}/plugins"
+        state: directory
+        owner: kafka
+        group: kafka
+
+    - name: Upload Connect configuration
+      copy:
+        src: "{{ configs_dir }}/{{ '{{' }} ansible_host {{ '}}' }}_{{ '{{' }} node_id {{ '}}' }}_connect-distributed.properties"
+        dest: "{{ kafka_install_dir }}/config/connect-distributed.properties"
+        owner: kafka
+        group: kafka
+        mode: "0644"
+
+    - name: Upload systemd unit
+      copy:
+        src: "{{ systemd_dir }}/{{ '{{' }} ansible_host {{ '}}' }}_{{ '{{' }} node_id {{ '}}' }}_kafka-connect.service"
+        dest: /etc/systemd/system/kafka-connect.service
+        mode: "0644"
+
+    - name: Reload and start Connect
+      systemd:
+        name: kafka-connect
+        daemon_reload: true
+        enabled: true
+        state: started
+{% endif %}

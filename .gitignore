@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+tantor.db
+*.db
+node_modules/
+dist/
+.vite/
+venv/
+.venv/
+kafka-vapt/reports/
+backend/repo/kafka/*.tgz
+backend/repo/ksqldb/*.tgz
+*.tgz

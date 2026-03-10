@@ -1,0 +1,21 @@
+all:
+  children:
+{% for group_name, hosts in groups.items() %}
+    {{ group_name }}:
+      hosts:
+{% for svc in hosts %}
+        {{ svc.ip_address }}_{{ svc.node_id }}:
+          ansible_host: "{{ svc.ip_address }}"
+          ansible_port: {{ svc.port }}
+          ansible_user: "{{ svc.username }}"
+{% if svc.auth_type == "password" %}
+          ansible_ssh_pass: "{{ svc.credential }}"
+          ansible_become_pass: "{{ svc.credential }}"
+{% else %}
+          ansible_ssh_private_key_file: "{{ svc.key_file }}"
+{% endif %}
+          ansible_become: true
+          node_id: {{ svc.node_id }}
+          service_role: "{{ svc.role }}"
+{% endfor %}
+{% endfor %}

@@ -1,0 +1,22 @@
+:80 {
+    # API reverse proxy (includes WebSocket)
+    handle /api/* {
+        reverse_proxy localhost:8000
+    }
+
+    # Grafana reverse proxy (optional)
+    handle /grafana/* {
+        uri strip_prefix /grafana
+        reverse_proxy localhost:3000
+    }
+
+    # Serve frontend static files with SPA fallback
+    handle {
+        root * /var/www/tantor/dist
+        try_files {path} /index.html
+        file_server
+    }
+
+    # Compression
+    encode gzip
+}

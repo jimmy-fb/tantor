@@ -1,0 +1,76 @@
+{
+  "versions": [
+    {
+      "version": "3.9.0",
+      "release_date": "2024-09-25",
+      "features": [
+        "KRaft migration fully supported",
+        "Streams improvements for windowed aggregations",
+        "New consumer group protocol enhancements",
+        "Admin client improvements"
+      ],
+      "security_fixes": [],
+      "upgrade_notes": "Recommended upgrade from 3.7+. Full KRaft support."
+    },
+    {
+      "version": "3.8.1",
+      "release_date": "2024-10-01",
+      "features": [
+        "Bug fixes from 3.8.0",
+        "Improved KRaft controller performance",
+        "Streams bug fixes"
+      ],
+      "security_fixes": [
+        "CVE-2024-31141: Kafka Clients SASL credentials exposure in logs"
+      ],
+      "upgrade_notes": "Patch release. Safe to upgrade from 3.8.x."
+    },
+    {
+      "version": "3.7.2",
+      "release_date": "2024-10-02",
+      "features": [
+        "Bug fixes from 3.7.0/3.7.1",
+        "KRaft stability improvements"
+      ],
+      "security_fixes": [
+        "CVE-2024-31141: Kafka Clients SASL credentials exposure in logs"
+      ],
+      "upgrade_notes": "Patch release for 3.7.x line."
+    },
+    {
+      "version": "3.7.0",
+      "release_date": "2024-02-27",
+      "features": [
+        "KRaft production-ready and recommended",
+        "Tiered storage GA",
+        "New consumer group protocol (KIP-848)",
+        "ZooKeeper mode deprecated"
+      ],
+      "security_fixes": [
+        "CVE-2024-27309: SCRAM authentication bypass fix"
+      ],
+      "upgrade_notes": "Recommended upgrade path from 3.5+. ZooKeeper mode deprecated."
+    },
+    {
+      "version": "3.6.2",
+      "release_date": "2024-01-10",
+      "features": [
+        "KRaft improvements",
+        "Bug fixes from 3.6.0/3.6.1"
+      ],
+      "security_fixes": [],
+      "upgrade_notes": "Patch release. Safe to upgrade from 3.6.x."
+    },
+    {
+      "version": "3.5.2",
+      "release_date": "2023-11-28",
+      "features": [
+        "KRaft controller migration tooling",
+        "New consumer metrics",
+        "Streams improvements"
+      ],
+      "security_fixes": [],
+      "upgrade_notes": "Last 3.5.x release. Consider upgrading to 3.7.x."
+    }
+  ]
+}

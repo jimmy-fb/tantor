@@ -1,0 +1,17 @@
+[Unit]
+Description=ksqlDB Server
+After=network.target kafka.service
+
+[Service]
+Type=simple
+User=kafka
+Group=kafka
+Environment="KSQL_HEAP_OPTS=-Xmx512M -Xms512M"
+Environment="KSQL_LOG4J_OPTS=-Dlog4j.configuration=file:{{ ksqldb_home }}/etc/ksqldb/log4j-rolling.properties"
+ExecStart={{ ksqldb_home }}/bin/ksql-server-start {{ config_path }}
+Restart=on-failure
+RestartSec=10
+LimitNOFILE=100000
+
+[Install]
+WantedBy=multi-user.target

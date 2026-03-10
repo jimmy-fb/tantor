@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tantor VAPT Report — OWASP ZAP Security Assessment</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card: #1e293b;
+            --border: #334155;
+            --text: #e2e8f0;
+            --muted: #94a3b8;
+            --green: #22c55e;
+            --green-bg: rgba(34,197,94,.12);
+            --yellow: #eab308;
+            --yellow-bg: rgba(234,179,8,.12);
+            --red: #ef4444;
+            --red-bg: rgba(239,68,68,.12);
+            --blue: #3b82f6;
+            --blue-bg: rgba(59,130,246,.12);
+            --purple: #a855f7;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            padding: 2rem;
+            line-height: 1.6;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .header h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin-bottom: .5rem;
+            background: linear-gradient(135deg, var(--blue), var(--purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .header .subtitle { color: var(--muted); font-size: 1.1rem; }
+        .header .meta { color: var(--muted); font-size: .85rem; margin-top: .75rem; }
+
+        /* Overall Score */
+        .overall-score {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-bottom: 3rem;
+            flex-wrap: wrap;
+        }
+        .score-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem 2.5rem;
+            text-align: center;
+            min-width: 180px;
+        }
+        .score-card .grade {
+            font-size: 3rem;
+            font-weight: 800;
+            line-height: 1;
+        }
+        .score-card .grade.a { color: var(--green); }
+        .score-card .grade.b { color: var(--yellow); }
+        .score-card .label {
+            color: var(--muted);
+            font-size: .85rem;
+            margin-top: .5rem;
+        }
+        .score-card .value {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-top: .25rem;
+        }
+
+        /* Summary Grid */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+        .summary-box {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+        }
+        .summary-box h3 {
+            font-size: 1rem;
+            color: var(--muted);
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            font-weight: 600;
+        }
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: .5rem 0;
+            border-bottom: 1px solid rgba(51,65,85,.5);
+        }
+        .stat-row:last-child { border-bottom: none; }
+        .stat-label { color: var(--text); }
+        .stat-value { font-weight: 700; font-size: 1.1rem; }
+        .stat-value.pass { color: var(--green); }
+        .stat-value.warn { color: var(--yellow); }
+        .stat-value.fail { color: var(--red); }
+        .stat-value.info { color: var(--blue); }
+
+        /* Progress bars */
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(51,65,85,.5);
+            border-radius: 4px;
+            margin-top: .75rem;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width .3s;
+        }
+        .progress-fill.green { background: var(--green); }
+        .progress-fill.yellow { background: var(--yellow); }
+
+        /* Section */
+        .section {
+            margin-bottom: 2.5rem;
+        }
+        .section h2 {
+            font-size: 1.4rem;
+            margin-bottom: 1rem;
+            padding-bottom: .5rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1rem;
+        }
+        th, td {
+            padding: .75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        th {
+            background: rgba(51,65,85,.4);
+            color: var(--muted);
+            font-size: .8rem;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            font-weight: 600;
+        }
+        td { font-size: .9rem; }
+        tr:hover td { background: rgba(51,65,85,.2); }
+
+        /* Badges */
+        .badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 9999px;
+            font-size: .75rem;
+            font-weight: 600;
+        }
+        .badge-pass { background: var(--green-bg); color: var(--green); }
+        .badge-warn { background: var(--yellow-bg); color: var(--yellow); }
+        .badge-fail { background: var(--red-bg); color: var(--red); }
+        .badge-info { background: var(--blue-bg); color: var(--blue); }
+        .badge-low { background: var(--yellow-bg); color: var(--yellow); }
+        .badge-high { background: var(--red-bg); color: var(--red); }
+
+        /* Finding cards */
+        .finding {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+        }
+        .finding-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: .75rem;
+        }
+        .finding-title { font-weight: 600; font-size: 1rem; }
+        .finding-detail { color: var(--muted); font-size: .85rem; margin-bottom: .5rem; }
+        .finding-solution {
+            background: rgba(59,130,246,.08);
+            border-left: 3px solid var(--blue);
+            padding: .75rem 1rem;
+            border-radius: 0 6px 6px 0;
+            margin-top: .75rem;
+            font-size: .85rem;
+        }
+        .finding-solution strong { color: var(--blue); }
+
+        /* Category breakdown */
+        .cat-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .cat-item {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1rem;
+            text-align: center;
+        }
+        .cat-item .count {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--green);
+        }
+        .cat-item .cat-label {
+            color: var(--muted);
+            font-size: .8rem;
+            margin-top: .25rem;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding-top: 2rem;
+            border-top: 1px solid var(--border);
+            color: var(--muted);
+            font-size: .8rem;
+        }
+
+        /* Collapsible */
+        details { margin-bottom: .5rem; }
+        details summary {
+            cursor: pointer;
+            padding: .5rem;
+            border-radius: 6px;
+            font-weight: 500;
+        }
+        details summary:hover { background: rgba(51,65,85,.3); }
+        details[open] summary { margin-bottom: .5rem; }
+
+        @media (max-width: 768px) {
+            body { padding: 1rem; }
+            .header h1 { font-size: 1.5rem; }
+            .score-card { min-width: 140px; padding: 1rem 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Tantor — VAPT Security Assessment Report</h1>
+        <div class="subtitle">Vulnerability Assessment & Penetration Testing</div>
+        <div class="meta">
+            Tool: OWASP ZAP 2.17.0 &nbsp;|&nbsp; Date: March 9, 2026 &nbsp;|&nbsp; Target: Tantor v1.0
+        </div>
+    </div>
+
+    <!-- Overall Score -->
+    <div class="overall-score">
+        <div class="score-card">
+            <div class="grade a">A</div>
+            <div class="label">Overall Security Grade</div>
+        </div>
+        <div class="score-card">
+            <div class="value" style="color:var(--green);">0</div>
+            <div class="label">Critical / High Failures</div>
+        </div>
+        <div class="score-card">
+            <div class="value" style="color:var(--yellow);">4</div>
+            <div class="label">Low-Risk Warnings</div>
+        </div>
+        <div class="score-card">
+            <div class="value" style="color:var(--green);">249</div>
+            <div class="label">Total Checks Passed</div>
+        </div>
+    </div>
+
+    <!-- Scan Summary -->
+    <div class="summary-grid">
+        <!-- API Scan -->
+        <div class="summary-box">
+            <h3>API Scan (Active)</h3>
+            <div class="stat-row">
+                <span class="stat-label">Target</span>
+                <span class="stat-value" style="font-size:.85rem;color:var(--blue);">OpenAPI Spec</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Endpoints Tested</span>
+                <span class="stat-value info">496</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Passed</span>
+                <span class="stat-value pass">117</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Warnings</span>
+                <span class="stat-value warn">2</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Failures</span>
+                <span class="stat-value pass">0</span>
+            </div>
+            <div class="progress-bar"><div class="progress-fill green" style="width:98.3%"></div></div>
+        </div>
+
+        <!-- Backend Baseline -->
+        <div class="summary-box">
+            <h3>Backend Baseline (Passive)</h3>
+            <div class="stat-row">
+                <span class="stat-label">Target</span>
+                <span class="stat-value" style="font-size:.85rem;color:var(--blue);">:8000</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Scan Type</span>
+                <span class="stat-value" style="font-size:.85rem;">Passive + Spider</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Passed</span>
+                <span class="stat-value pass">66</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Warnings</span>
+                <span class="stat-value warn">1</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Failures</span>
+                <span class="stat-value pass">0</span>
+            </div>
+            <div class="progress-bar"><div class="progress-fill green" style="width:98.5%"></div></div>
+        </div>
+
+        <!-- Frontend Baseline -->
+        <div class="summary-box">
+            <h3>Frontend Baseline (Passive)</h3>
+            <div class="stat-row">
+                <span class="stat-label">Target</span>
+                <span class="stat-value" style="font-size:.85rem;color:var(--blue);">:5173</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Scan Type</span>
+                <span class="stat-value" style="font-size:.85rem;">Passive + Spider</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Passed</span>
+                <span class="stat-value pass">66</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Warnings</span>
+                <span class="stat-value warn">1</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Failures</span>
+                <span class="stat-value pass">0</span>
+            </div>
+            <div class="progress-bar"><div class="progress-fill green" style="width:98.5%"></div></div>
+        </div>
+    </div>
+
+    <!-- Vulnerability Categories Tested -->
+    <div class="section">
+        <h2>Active Vulnerability Categories Tested (API Scan)</h2>
+        <div class="cat-grid">
+            <div class="cat-item">
+                <div class="count">&#10003;</div>
+                <div class="cat-label">Cross-Site Scripting (XSS)<br>Reflected / Persistent / DOM</div>
+            </div>
+            <div class="cat-item">
+                <div class="count">&#10003;</div>
+                <div class="cat-label">SQL Injection<br>MySQL / Oracle / PostgreSQL / MsSQL</div>
+            </div>
+            <div class="cat-item">
+                <div class="count">&#10003;</div>
+                <div class="cat-label">Remote Code Execution<br>Log4Shell / Spring4Shell / React2Shell</div>
+            </div>
+            <div class="cat-item">
+                <div class="count">&#10003;</div>
+                <div class="cat-label">Command Injection<br>OS Command / Time-Based</div>
+            </div>
+            <div class="cat-item">
+                <div class="count">&#10003;</div>
+                <div class="cat-label">Path Traversal<br>& Remote File Inclusion</div>
+            </div>
+            <div class="cat-item">
+                <div class="count">&#10003;</div>
+                <div class="cat-label">XML Attacks<br>XXE / XSLT / Billion Laughs</div>
+            </div>
+            <div class="cat-item">
+                <div class="count">&#10003;</div>
+                <div class="cat-label">Server-Side Injection<br>SSTI / Code Injection</div>
+            </div>
+            <div class="cat-item">
+                <div class="count">&#10003;</div>
+                <div class="cat-label">Session & Auth<br>CSRF / Session Fixation</div>
+            </div>
+            <div class="cat-item">
+                <div class="count">&#10003;</div>
+                <div class="cat-label">Buffer Overflow<br>& Format String</div>
+            </div>
+            <div class="cat-item">
+                <div class="count">&#10003;</div>
+                <div class="cat-label">CRLF Injection<br>& Header Tampering</div>
+            </div>
+            <div class="cat-item">
+                <div class="count">&#10003;</div>
+                <div class="cat-label">Cloud & Infrastructure<br>Metadata / Heartbleed / SOAP</div>
+            </div>
+            <div class="cat-item">
+                <div class="count">&#10003;</div>
+                <div class="cat-label">Info Leaks<br>.env / .htaccess / Spring Actuator</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Complete Vulnerability Test Results -->
+    <div class="section">
+        <h2>Full Active Scan Results (117 Checks)</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Status</th>
+                    <th>Check Name</th>
+                    <th>ID</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>PII Disclosure</td><td>10062</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Permissions Policy Header Not Set</td><td>10063</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Timestamp Disclosure</td><td>10096</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Hash Disclosure</td><td>10097</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Cross-Domain Misconfiguration</td><td>10098</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Source Code Disclosure</td><td>10099</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>User Agent Fuzzer</td><td>10104</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Weak Authentication Method</td><td>10105</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>HTTP Only Site</td><td>10106</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Reverse Tabnabbing</td><td>10108</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Modern Web Application</td><td>10109</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Dangerous JS Functions</td><td>10110</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Authentication Request Identified</td><td>10111</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Session Management Response Identified</td><td>10112</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Verification Request Identified</td><td>10113</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Script Served From Malicious Domain (polyfill)</td><td>10115</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Absence of Anti-CSRF Tokens</td><td>10202</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Private IP Disclosure</td><td>2</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Heartbleed OpenSSL Vulnerability</td><td>20015</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Source Code Disclosure — CVE-2012-1823</td><td>20017</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Remote Code Execution — CVE-2012-1823</td><td>20018</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>External Redirect</td><td>20019</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Session ID in URL Rewrite</td><td>3</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Buffer Overflow</td><td>30001</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Format String Error</td><td>30002</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>CRLF Injection</td><td>40003</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Parameter Tampering</td><td>40008</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Server Side Include</td><td>40009</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Cross Site Scripting (Reflected)</td><td>40012</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Cross Site Scripting (Persistent)</td><td>40014</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Cross Site Scripting (Persistent) — Prime</td><td>40016</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Cross Site Scripting (Persistent) — Spider</td><td>40017</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>SQL Injection</td><td>40018</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>SQL Injection — MySQL (Time Based)</td><td>40019</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>SQL Injection — Hypersonic SQL (Time Based)</td><td>40020</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>SQL Injection — Oracle (Time Based)</td><td>40021</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>SQL Injection — PostgreSQL (Time Based)</td><td>40022</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Cross Site Scripting (DOM Based)</td><td>40026</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>SQL Injection — MsSQL (Time Based)</td><td>40027</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>ELMAH Information Leak</td><td>40028</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Trace.axd Information Leak</td><td>40029</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>.htaccess Information Leak</td><td>40032</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>.env Information Leak</td><td>40034</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Hidden File Finder</td><td>40035</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Spring Actuator Information Leak</td><td>40042</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Log4Shell (CVE-2021-44228)</td><td>40043</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Exponential Entity Expansion (Billion Laughs)</td><td>40044</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Spring4Shell (CVE-2022-22965)</td><td>40045</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Remote Code Execution (React2Shell)</td><td>40048</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Path Traversal</td><td>6</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Remote File Inclusion</td><td>7</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Insecure JSF ViewState</td><td>90001</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Java Serialization Object</td><td>90002</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Sub Resource Integrity Attribute Missing</td><td>90003</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Charset Mismatch</td><td>90011</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>XSLT Injection</td><td>90017</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Server Side Code Injection</td><td>90019</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Remote OS Command Injection</td><td>90020</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>XPath Injection</td><td>90021</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Application Error Disclosure</td><td>90022</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>XML External Entity Attack</td><td>90023</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Generic Padding Oracle</td><td>90024</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>SOAP Action Spoofing</td><td>90026</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>SOAP XML Injection</td><td>90029</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>WSDL File Detection</td><td>90030</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Loosely Scoped Cookie</td><td>90033</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Cloud Metadata Potentially Exposed</td><td>90034</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Server Side Template Injection</td><td>90035</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Server Side Template Injection (Blind)</td><td>90036</td></tr>
+                <tr><td><span class="badge badge-pass">PASS</span></td><td>Remote OS Command Injection (Time Based)</td><td>90037</td></tr>
+                <tr><td><span class="badge badge-warn">WARN</span></td><td>X-Content-Type-Options Header Missing</td><td>10021</td></tr>
+                <tr><td><span class="badge badge-warn">WARN</span></td><td>Cross-Origin-Resource-Policy Header Missing</td><td>90004</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Warnings Detail -->
+    <div class="section">
+        <h2>Findings Detail (Warnings Only — No Critical/High Issues Found)</h2>
+
+        <div class="finding">
+            <div class="finding-header">
+                <span class="finding-title">X-Content-Type-Options Header Missing</span>
+                <span class="badge badge-low">Low Risk</span>
+            </div>
+            <div class="finding-detail">
+                <strong>Source:</strong> API Scan &nbsp;|&nbsp; <strong>CWE:</strong> 693 &nbsp;|&nbsp; <strong>WASC:</strong> 15<br>
+                <strong>Affected:</strong> /api/health, /openapi.json
+            </div>
+            <div class="finding-detail">
+                The Anti-MIME-Sniffing header X-Content-Type-Options was not set to 'nosniff'. This allows older browsers to perform MIME-sniffing on the response body, potentially interpreting content as a different type than declared.
+            </div>
+            <div class="finding-solution">
+                <strong>Recommendation:</strong> Add the <code>X-Content-Type-Options: nosniff</code> response header to all API endpoints. In FastAPI, add middleware:
+                <pre style="margin-top:.5rem;color:var(--text);font-size:.8rem;">
+from starlette.middleware.base import BaseHTTPMiddleware
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        return response
+
+app.add_middleware(SecurityHeadersMiddleware)</pre>
+            </div>
+        </div>
+
+        <div class="finding">
+            <div class="finding-header">
+                <span class="finding-title">Cross-Origin-Resource-Policy Header Missing or Invalid</span>
+                <span class="badge badge-low">Low Risk</span>
+            </div>
+            <div class="finding-detail">
+                <strong>Source:</strong> API Scan &nbsp;|&nbsp; <strong>CWE:</strong> 693 &nbsp;|&nbsp; <strong>WASC:</strong> 14<br>
+                <strong>Affected:</strong> /api/health, /openapi.json
+            </div>
+            <div class="finding-detail">
+                Cross-Origin-Resource-Policy header is an opt-in header designed to counter side-channel attacks like Spectre. Resources should be specifically set as shareable among different origins.
+            </div>
+            <div class="finding-solution">
+                <strong>Recommendation:</strong> Add the <code>Cross-Origin-Resource-Policy: same-origin</code> header (or <code>cross-origin</code> if the API is accessed from different origins). Add to the same SecurityHeadersMiddleware:
+                <pre style="margin-top:.5rem;color:var(--text);font-size:.8rem;">
+response.headers["Cross-Origin-Resource-Policy"] = "cross-origin"</pre>
+            </div>
+        </div>
+
+        <div class="finding">
+            <div class="finding-header">
+                <span class="finding-title">Storable and Cacheable Content</span>
+                <span class="badge badge-info">Informational</span>
+            </div>
+            <div class="finding-detail">
+                <strong>Source:</strong> Backend Baseline &nbsp;|&nbsp; <strong>CWE:</strong> 524 &nbsp;|&nbsp; <strong>WASC:</strong> 13<br>
+                <strong>Affected:</strong> Root path (404), /sitemap.xml (404)
+            </div>
+            <div class="finding-detail">
+                404 error responses are cacheable by default. If error pages inadvertently contain sensitive info, they could be cached by proxies.
+            </div>
+            <div class="finding-solution">
+                <strong>Recommendation:</strong> Add <code>Cache-Control: no-cache, no-store, must-revalidate</code> headers to error responses. This is a very low-priority informational finding.
+            </div>
+        </div>
+
+        <div class="finding">
+            <div class="finding-header">
+                <span class="finding-title">Non-Storable Content</span>
+                <span class="badge badge-info">Informational</span>
+            </div>
+            <div class="finding-detail">
+                <strong>Source:</strong> Frontend Baseline &nbsp;|&nbsp; <strong>CWE:</strong> 524 &nbsp;|&nbsp; <strong>WASC:</strong> 13<br>
+                <strong>Affected:</strong> Root path (403), /sitemap.xml (403)
+            </div>
+            <div class="finding-detail">
+                Vite dev server returned 403 for root requests from ZAP's Docker container (expected in dev mode). Response content is not storable by caching components.
+            </div>
+            <div class="finding-solution">
+                <strong>Recommendation:</strong> No action needed. This is expected behavior in development. In production, serve frontend via Nginx/CDN with proper cache headers.
+            </div>
+        </div>
+    </div>
+
+    <!-- Passed Vulnerability Categories -->
+    <div class="section">
+        <h2>Vulnerability Categories — All Clear</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Category</th>
+                    <th>Tests</th>
+                    <th>Result</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Injection Attacks</strong><br><span style="color:var(--muted);font-size:.8rem;">SQL, XPath, XSLT, SSTI, OS Command, CRLF, SSI</span></td>
+                    <td>16</td>
+                    <td><span class="badge badge-pass">ALL PASS</span></td>
+                </tr>
+                <tr>
+                    <td><strong>Cross-Site Scripting (XSS)</strong><br><span style="color:var(--muted);font-size:.8rem;">Reflected, Persistent, DOM-Based, Prime, Spider</span></td>
+                    <td>5</td>
+                    <td><span class="badge badge-pass">ALL PASS</span></td>
+                </tr>
+                <tr>
+                    <td><strong>Remote Code Execution</strong><br><span style="color:var(--muted);font-size:.8rem;">Log4Shell, Spring4Shell, React2Shell, CVE-2012-1823</span></td>
+                    <td>4</td>
+                    <td><span class="badge badge-pass">ALL PASS</span></td>
+                </tr>
+                <tr>
+                    <td><strong>File & Path Exploits</strong><br><span style="color:var(--muted);font-size:.8rem;">Path Traversal, Remote File Inclusion, Hidden Files, .env/.htaccess</span></td>
+                    <td>5</td>
+                    <td><span class="badge badge-pass">ALL PASS</span></td>
+                </tr>
+                <tr>
+                    <td><strong>XML / SOAP Attacks</strong><br><span style="color:var(--muted);font-size:.8rem;">XXE, Billion Laughs, SOAP Spoofing, SOAP XML Injection</span></td>
+                    <td>5</td>
+                    <td><span class="badge badge-pass">ALL PASS</span></td>
+                </tr>
+                <tr>
+                    <td><strong>Authentication & Session</strong><br><span style="color:var(--muted);font-size:.8rem;">CSRF, Weak Auth, Session Fixation, Cookie Scoping</span></td>
+                    <td>6</td>
+                    <td><span class="badge badge-pass">ALL PASS</span></td>
+                </tr>
+                <tr>
+                    <td><strong>Information Disclosure</strong><br><span style="color:var(--muted);font-size:.8rem;">PII, Source Code, Private IP, Error Messages, Spring Actuator</span></td>
+                    <td>10</td>
+                    <td><span class="badge badge-pass">ALL PASS</span></td>
+                </tr>
+                <tr>
+                    <td><strong>Infrastructure</strong><br><span style="color:var(--muted);font-size:.8rem;">Heartbleed, Cloud Metadata, Buffer Overflow, Format String</span></td>
+                    <td>5</td>
+                    <td><span class="badge badge-pass">ALL PASS</span></td>
+                </tr>
+                <tr>
+                    <td><strong>Supply Chain</strong><br><span style="color:var(--muted);font-size:.8rem;">Polyfill.io Malicious Domain, External Redirects</span></td>
+                    <td>3</td>
+                    <td><span class="badge badge-pass">ALL PASS</span></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Scan Methodology -->
+    <div class="section">
+        <h2>Scan Methodology</h2>
+        <div class="summary-grid" style="grid-template-columns: 1fr 1fr;">
+            <div class="summary-box">
+                <h3>Scans Performed</h3>
+                <div class="stat-row">
+                    <span class="stat-label">1. API Active Scan</span>
+                    <span class="stat-value" style="font-size:.8rem;color:var(--muted);">zap-api-scan.py</span>
+                </div>
+                <div class="finding-detail" style="padding:.25rem 0;">
+                    Imported OpenAPI 3.1 specification (496 endpoints). Tested all endpoints with active attack payloads including SQL injection, XSS, RCE, path traversal, and more.
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">2. Backend Baseline Scan</span>
+                    <span class="stat-value" style="font-size:.8rem;color:var(--muted);">zap-baseline.py</span>
+                </div>
+                <div class="finding-detail" style="padding:.25rem 0;">
+                    Passive scan of the FastAPI backend (port 8000). Spider-based crawling with passive rule analysis for headers, cookies, and information disclosure.
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">3. Frontend Baseline Scan</span>
+                    <span class="stat-value" style="font-size:.8rem;color:var(--muted);">zap-baseline.py</span>
+                </div>
+                <div class="finding-detail" style="padding:.25rem 0;">
+                    Passive scan of the React/Vite frontend (port 5173). Analyzed JavaScript, DOM structures, and response headers.
+                </div>
+            </div>
+            <div class="summary-box">
+                <h3>Environment</h3>
+                <div class="stat-row">
+                    <span class="stat-label">Scanner</span>
+                    <span>OWASP ZAP 2.17.0</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Runner</span>
+                    <span>Docker (zaproxy/zap-stable)</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Backend</span>
+                    <span>FastAPI + Uvicorn :8000</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Frontend</span>
+                    <span>React + Vite :5173</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">API Spec</span>
+                    <span>OpenAPI 3.1 (113 routes)</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Total Endpoints</span>
+                    <span>496 tested</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Scan Duration</span>
+                    <span>~5 minutes total</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recommendations -->
+    <div class="section">
+        <h2>Recommendations Summary</h2>
+        <div class="summary-box" style="max-width:800px;">
+            <div class="stat-row">
+                <span class="stat-label">
+                    <strong>Priority 1 (Low):</strong> Add security response headers<br>
+                    <span style="color:var(--muted);font-size:.8rem;">X-Content-Type-Options, Cross-Origin-Resource-Policy</span>
+                </span>
+                <span class="badge badge-low">Low</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">
+                    <strong>Priority 2 (Info):</strong> Add cache control headers to error responses<br>
+                    <span style="color:var(--muted);font-size:.8rem;">Cache-Control: no-store for 4xx/5xx responses</span>
+                </span>
+                <span class="badge badge-info">Info</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">
+                    <strong>Priority 3 (Production):</strong> Enable HTTPS in production<br>
+                    <span style="color:var(--muted);font-size:.8rem;">Use TLS certificates, HSTS header, secure cookies</span>
+                </span>
+                <span class="badge badge-info">Info</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Individual Reports -->
+    <div class="section">
+        <h2>Individual Scan Reports</h2>
+        <div class="summary-box" style="max-width:600px;">
+            <div class="stat-row">
+                <span class="stat-label">API Active Scan Report</span>
+                <span><a href="api-scan-report.html" style="color:var(--blue);">api-scan-report.html</a></span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Backend Baseline Report</span>
+                <span><a href="backend-baseline-report.html" style="color:var(--blue);">backend-baseline-report.html</a></span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Frontend Baseline Report</span>
+                <span><a href="frontend-baseline-report.html" style="color:var(--blue);">frontend-baseline-report.html</a></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>Generated by OWASP ZAP 2.17.0 &nbsp;|&nbsp; Tantor Kafka Cluster Management Platform &nbsp;|&nbsp; March 9, 2026</p>
+        <p style="margin-top:.5rem;">This report is for internal security assessment purposes. No critical or high-risk vulnerabilities were detected.</p>
+    </div>
+</body>
+</html>

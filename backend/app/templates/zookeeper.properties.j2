@@ -1,0 +1,14 @@
+# Tantor-generated ZooKeeper Configuration
+
+dataDir={{ data_dir }}
+clientPort=2181
+maxClientCnxns=0
+admin.enableServer=false
+
+tickTime=2000
+initLimit=5
+syncLimit=2
+
+{% for server in servers %}
+server.{{ server.id }}={{ server.ip }}:2888:3888
+{% endfor %}

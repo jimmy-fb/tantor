@@ -1,0 +1,9 @@
+# Tantor-generated ksqlDB Configuration
+
+bootstrap.servers={{ bootstrap_servers }}
+listeners=http://0.0.0.0:{{ ksqldb_port }}
+ksql.service.id={{ service_id }}
+
+ksql.streams.auto.offset.reset=earliest
+ksql.logging.processing.topic.auto.create=true
+ksql.logging.processing.stream.auto.create=true

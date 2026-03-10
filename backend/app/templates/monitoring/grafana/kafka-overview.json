@@ -1,0 +1,82 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "kafka-overview",
+    "title": "Kafka Overview",
+    "tags": ["tantor", "kafka"],
+    "timezone": "browser",
+    "refresh": "10s",
+    "panels": [
+      {
+        "title": "Messages In Per Sec",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "sum(rate(kafka_server_BrokerTopicMetrics_MessagesInPerSec_Count[5m]))",
+            "legendFormat": "messages/s"
+          }
+        ]
+      },
+      {
+        "title": "Bytes In Per Sec",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+        "targets": [
+          {
+            "expr": "sum(rate(kafka_server_BrokerTopicMetrics_BytesInPerSec_Count[5m]))",
+            "legendFormat": "bytes/s"
+          }
+        ]
+      },
+      {
+        "title": "Bytes Out Per Sec",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+        "targets": [
+          {
+            "expr": "sum(rate(kafka_server_BrokerTopicMetrics_BytesOutPerSec_Count[5m]))",
+            "legendFormat": "bytes/s"
+          }
+        ]
+      },
+      {
+        "title": "Active Controller Count",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+        "targets": [
+          {
+            "expr": "sum(kafka_controller_KafkaController_ActiveControllerCount_Value)",
+            "legendFormat": "controllers"
+          }
+        ]
+      },
+      {
+        "title": "Messages In Rate",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+        "targets": [
+          {
+            "expr": "rate(kafka_server_BrokerTopicMetrics_MessagesInPerSec_Count[5m])",
+            "legendFormat": "{{instance}}"
+          }
+        ]
+      },
+      {
+        "title": "Network IO Rate",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+        "targets": [
+          {
+            "expr": "rate(kafka_server_BrokerTopicMetrics_BytesInPerSec_Count[5m])",
+            "legendFormat": "{{instance}} in"
+          },
+          {
+            "expr": "rate(kafka_server_BrokerTopicMetrics_BytesOutPerSec_Count[5m])",
+            "legendFormat": "{{instance}} out"
+          }
+        ]
+      }
+    ]
+  }
+}

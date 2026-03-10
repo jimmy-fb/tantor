@@ -1,0 +1,52 @@
+---
+- name: Run prerequisite checks on all hosts
+  hosts: all
+  become: true
+  tasks:
+    - name: Check OS version
+      shell: cat /etc/os-release | grep PRETTY_NAME | cut -d= -f2 | tr -d '"'
+      register: os_check
+      changed_when: false
+
+    - name: Check Java version
+      shell: java -version 2>&1 | head -1
+      register: java_check
+      changed_when: false
+      ignore_errors: true
+
+    - name: Check available RAM (MB)
+      shell: free -m | awk '/Mem:/{print $2}'
+      register: ram_check
+      changed_when: false
+
+    - name: Check available disk on /opt (GB)
+      shell: df -BG /opt | tail -1 | awk '{print $4}' | tr -d 'G'
+      register: disk_check
+      changed_when: false
+
+    - name: Check CPU cores
+      shell: nproc
+      register: cpu_check
+      changed_when: false
+
+    - name: Check Kafka ports availability
+      shell: ss -tlnp 2>/dev/null | grep -E ':(9092|9093|2181|8088|8083)' || echo "All ports free"
+      register: ports_check
+      changed_when: false
+
+    - name: Check NTP sync
+      shell: timedatectl 2>/dev/null | grep -i synchronized || echo "unknown"
+      register: ntp_check
+      changed_when: false
+
+    - name: Display prerequisite results
+      debug:
+        msg: |
+          Host: {{ '{{' }} inventory_hostname {{ '}}' }}
+          OS: {{ '{{' }} os_check.stdout {{ '}}' }}
+          Java: {{ '{{' }} java_check.stdout | default("Not installed") {{ '}}' }}
+          RAM: {{ '{{' }} ram_check.stdout {{ '}}' }} MB
+          Disk: {{ '{{' }} disk_check.stdout {{ '}}' }} GB free on /opt
+          CPUs: {{ '{{' }} cpu_check.stdout {{ '}}' }}
+          Ports: {{ '{{' }} ports_check.stdout {{ '}}' }}
+          NTP: {{ '{{' }} ntp_check.stdout {{ '}}' }}

@@ -1,0 +1,17 @@
+[Unit]
+Description=Apache Kafka KRaft Controller
+After=network.target
+
+[Service]
+Type=simple
+User=kafka
+Group=kafka
+Environment="KAFKA_HEAP_OPTS=-Xmx512M -Xms512M"
+ExecStart={{ kafka_home }}/bin/kafka-server-start.sh {{ config_path }}
+ExecStop={{ kafka_home }}/bin/kafka-server-stop.sh
+Restart=on-failure
+RestartSec=10
+LimitNOFILE=100000
+
+[Install]
+WantedBy=multi-user.target

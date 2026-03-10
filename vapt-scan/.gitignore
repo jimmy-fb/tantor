@@ -1,0 +1,15 @@
+# Scan output reports (generated, not tracked)
+reports/
+
+# ZAP temp files
+zap.yaml
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
