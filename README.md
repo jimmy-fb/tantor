@@ -10,14 +10,19 @@ Tantor is a full-stack platform for deploying, managing, and security-scanning A
 ┌──────────────────────────────────────────────────────────┐
 │                     Tantor Platform                      │
 ├──────────────┬──────────────┬────────────────────────────┤
-│   Frontend   │   Backend    │     Security Scanning      │
-│  React + TS  │   FastAPI    │                            │
-│   Vite SPA   │  Python 3.12 │  ┌──────────┐ ┌─────────┐ │
-│              │              │  │ vapt-scan│ │kafka-vapt│ │
-│  Mantine UI  │  SQLAlchemy  │  │ OWASP ZAP│ │ nmap     │ │
-│              │  Ansible     │  │ Web App  │ │ openssl  │ │
-│              │  Paramiko    │  │ Scanner  │ │ kcat     │ │
-│              │              │  └──────────┘ └─────────┘ │
+│   Frontend   │   Backend    │     Security Scanning           │
+│  React + TS  │   FastAPI    │                                 │
+│   Vite SPA   │  Python 3.12 │  ┌──────────┐ ┌─────────────┐  │
+│              │              │  │ vapt-scan│ │ kafka-vapt  │  │
+│  Mantine UI  │  SQLAlchemy  │  │ OWASP ZAP│ │ nmap+kcat   │  │
+│              │  Ansible     │  │ Web App  │ │ Kafka-specific│ │
+│              │  Paramiko    │  │ Scanner  │ └─────────────┘  │
+│              │              │  └──────────┘                   │
+│              │              │  ┌──────────┐ ┌─────────────┐  │
+│              │              │  │qualys-   │ │openvas-vapt │  │
+│              │              │  │  vapt    │ │ Greenbone CE│  │
+│              │              │  │Qualys CE │ │ 80K+ NVTs   │  │
+│              │              │  └──────────┘ └─────────────┘  │
 ├──────────────┴──────────────┴────────────────────────────┤
 │              Kafka Clusters (KRaft Mode)                 │
 │          Deployed via SSH + Ansible Playbooks             │
@@ -47,12 +52,25 @@ tantor/
 │   ├── package.json
 │   └── Dockerfile.prod
 │
-├── kafka-vapt/              # Kafka cluster VAPT scanner
-│   ├── run-kafka-vapt.sh    # Main scanner (30+ security checks)
+├── kafka-vapt/              # Kafka-specific VAPT scanner (custom, open-source)
+│   ├── run-kafka-vapt.sh    # Main scanner (40+ security checks)
 │   ├── run-e2e-vapt.sh      # End-to-end runner (cluster + scan)
 │   ├── docker-compose.kafka-test.yml  # Test cluster (3-broker KRaft)
 │   ├── Dockerfile           # Containerized scanner
 │   └── README.md            # Detailed scanner docs
+│
+├── qualys-vapt/             # Qualys Community Edition VAPT scanner
+│   ├── run-qualys-vapt.sh   # Qualys CE API + manual scan guide
+│   ├── run-e2e-qualys.sh    # End-to-end pipeline
+│   ├── docker-compose.qualys-test.yml  # Test cluster for Qualys
+│   ├── config/              # Qualys API configuration
+│   └── README.md
+│
+├── openvas-vapt/            # OpenVAS/Greenbone VAPT scanner (100% open-source)
+│   ├── run-openvas-vapt.sh  # GMP API-based automated scanner
+│   ├── run-e2e-openvas.sh   # End-to-end pipeline
+│   ├── docker-compose.openvas-test.yml  # Kafka + full OpenVAS stack
+│   └── README.md
 │
 ├── vapt-scan/               # Web application VAPT scanner (OWASP ZAP)
 │   ├── run-vapt.sh          # ZAP scanning wrapper
@@ -351,5 +369,38 @@ docker compose up -d
 | Auth | JWT + bcrypt |
 | Reverse Proxy | Caddy or Nginx |
 | Kafka Scanning | nmap, openssl, kcat, Kafka CLI |
+| Infrastructure Scanning | OpenVAS (Greenbone CE), Qualys CE |
 | Web Scanning | OWASP ZAP |
 | Containers | Docker, Docker Compose |
+
+---
+
+## VAPT Scanner Comparison
+
+Three scanner options for comprehensive security coverage:
+
+| Feature | kafka-vapt | OpenVAS | Qualys CE |
+|---------|-----------|---------|-----------|
+| **Type** | Kafka-specific | Infrastructure | Infrastructure |
+| **Cost** | Free | Free | Free (limited) |
+| **Open Source** | Yes | Yes (GPL) | No |
+| **API Automation** | CLI | GMP API | No (CE tier) |
+| **Kafka ACLs/SASL** | ✅ | ❌ | ❌ |
+| **ksqlDB checks** | ✅ | ❌ | ❌ |
+| **OS/Java CVEs** | ❌ | ✅ | ✅ |
+| **Log4Shell detect** | ❌ | ✅ | ✅ |
+| **SSL/TLS analysis** | ✅ | ✅ | ✅ |
+| **Port scanning** | ✅ | ✅ | ✅ |
+
+### Run All Three Scanners
+
+```bash
+# 1. Kafka-specific security (ACLs, SASL, topics, ksqlDB)
+cd kafka-vapt && ./run-e2e-vapt.sh
+
+# 2. OpenVAS infrastructure scan (OS CVEs, Java CVEs, network vulns)
+cd openvas-vapt && ./run-e2e-openvas.sh
+
+# 3. Qualys CE (commercial-grade, manual via portal)
+cd qualys-vapt && ./run-e2e-qualys.sh
+```

@@ -1,0 +1,167 @@
+###############################################################################
+# Qualys CE + Kafka Test Cluster
+# --------------------------------
+# Spins up a 3-broker KRaft Kafka cluster + ksqlDB + Qualys Virtual Scanner
+#
+# Usage:
+#   docker compose -f docker-compose.qualys-test.yml up -d
+#
+# NOTE: Qualys Virtual Scanner requires a Qualys Community Edition account
+#       and a personalization code from https://www.qualys.com/community-edition/
+###############################################################################
+
+version: "3.9"
+
+networks:
+  kafka-qualys-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+services:
+  # ── Kafka Broker 1 ──────────────────────────────────────────────────────
+  kafka-1:
+    image: apache/kafka:3.9.0
+    container_name: qualys-kafka-1
+    hostname: kafka-1
+    networks:
+      kafka-qualys-net:
+        ipv4_address: 172.28.0.10
+    ports:
+      - "19092:9092"
+      - "19093:9093"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-1:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-1:9093,2@kafka-2:9093,3@kafka-3:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      CLUSTER_ID: "QualysKafkaVAPTCluster1"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 | grep -q 'ApiVersion'"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  # ── Kafka Broker 2 ──────────────────────────────────────────────────────
+  kafka-2:
+    image: apache/kafka:3.9.0
+    container_name: qualys-kafka-2
+    hostname: kafka-2
+    networks:
+      kafka-qualys-net:
+        ipv4_address: 172.28.0.11
+    ports:
+      - "19094:9092"
+      - "19095:9093"
+    environment:
+      KAFKA_NODE_ID: 2
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-2:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-1:9093,2@kafka-2:9093,3@kafka-3:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      CLUSTER_ID: "QualysKafkaVAPTCluster1"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 | grep -q 'ApiVersion'"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  # ── Kafka Broker 3 ──────────────────────────────────────────────────────
+  kafka-3:
+    image: apache/kafka:3.9.0
+    container_name: qualys-kafka-3
+    hostname: kafka-3
+    networks:
+      kafka-qualys-net:
+        ipv4_address: 172.28.0.12
+    ports:
+      - "19096:9092"
+      - "19097:9093"
+    environment:
+      KAFKA_NODE_ID: 3
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-3:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-1:9093,2@kafka-2:9093,3@kafka-3:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      CLUSTER_ID: "QualysKafkaVAPTCluster1"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 | grep -q 'ApiVersion'"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  # ── ksqlDB ──────────────────────────────────────────────────────────────
+  ksqldb-server:
+    image: confluentinc/ksqldb-server:0.29.0
+    container_name: qualys-ksqldb
+    hostname: ksqldb-server
+    networks:
+      kafka-qualys-net:
+        ipv4_address: 172.28.0.20
+    ports:
+      - "18088:8088"
+    environment:
+      KSQL_BOOTSTRAP_SERVERS: "PLAINTEXT://kafka-1:9092,PLAINTEXT://kafka-2:9092,PLAINTEXT://kafka-3:9092"
+      KSQL_LISTENERS: "http://0.0.0.0:8088"
+      KSQL_KSQL_SERVICE_ID: "qualys_vapt_ksql_"
+      KSQL_KSQL_LOGGING_PROCESSING_TOPIC_AUTO_CREATE: "true"
+      KSQL_KSQL_LOGGING_PROCESSING_STREAM_AUTO_CREATE: "true"
+    depends_on:
+      kafka-1:
+        condition: service_healthy
+      kafka-2:
+        condition: service_healthy
+      kafka-3:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8088/info || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+
+  # ── Qualys Virtual Scanner Appliance ────────────────────────────────────
+  # IMPORTANT: You need a Qualys Community Edition account to use this.
+  # 1. Sign up at https://www.qualys.com/community-edition/
+  # 2. Download the Virtual Scanner image or use the Docker scanner
+  # 3. Get your Personalization Code from the Qualys portal
+  # 4. Set QUALYS_PERSO_CODE environment variable before starting
+  #
+  # The Qualys scanner runs as a separate container and connects to the
+  # Qualys cloud platform. Scans are configured and triggered via the API.
+  #
+  # If you don't have a Qualys account yet, comment out this service and
+  # use the run-qualys-vapt.sh script which will guide you through setup.
+  # ─────────────────────────────────────────────────────────────────────────
+  # qualys-scanner:
+  #   image: qualys/qvsa:latest
+  #   container_name: qualys-scanner
+  #   hostname: qualys-scanner
+  #   networks:
+  #     kafka-qualys-net:
+  #       ipv4_address: 172.28.0.100
+  #   environment:
+  #     PERSO_CODE: "${QUALYS_PERSO_CODE:-YOUR_PERSONALIZATION_CODE}"
+  #     PROXY_URL: ""
+  #   volumes:
+  #     - qualys-scanner-data:/usr/local/qualys
+  #   restart: unless-stopped
+  #   depends_on:
+  #     kafka-1:
+  #       condition: service_healthy
+
+# volumes:
+#   qualys-scanner-data:

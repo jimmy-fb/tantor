@@ -1,0 +1,273 @@
+###############################################################################
+# OpenVAS (Greenbone) + Kafka Test Cluster
+# ------------------------------------------
+# Spins up:
+#   - 3-broker KRaft Kafka cluster + ksqlDB
+#   - Greenbone OpenVAS Community Edition (full scanner)
+#
+# Usage:
+#   docker compose -f docker-compose.openvas-test.yml up -d
+#
+# OpenVAS Web UI: https://localhost:9443  (admin / admin)
+# First startup takes 10-15 minutes for feed sync.
+###############################################################################
+
+version: "3.9"
+
+networks:
+  kafka-openvas-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.29.0.0/16
+
+services:
+  # ── Kafka Broker 1 ──────────────────────────────────────────────────────
+  kafka-1:
+    image: apache/kafka:3.9.0
+    container_name: openvas-kafka-1
+    hostname: kafka-1
+    networks:
+      kafka-openvas-net:
+        ipv4_address: 172.29.0.10
+    ports:
+      - "29092:9092"
+      - "29093:9093"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-1:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-1:9093,2@kafka-2:9093,3@kafka-3:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      CLUSTER_ID: "OpenVASKafkaVAPTCluster1"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 | grep -q 'ApiVersion'"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  # ── Kafka Broker 2 ──────────────────────────────────────────────────────
+  kafka-2:
+    image: apache/kafka:3.9.0
+    container_name: openvas-kafka-2
+    hostname: kafka-2
+    networks:
+      kafka-openvas-net:
+        ipv4_address: 172.29.0.11
+    ports:
+      - "29094:9092"
+      - "29095:9093"
+    environment:
+      KAFKA_NODE_ID: 2
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-2:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-1:9093,2@kafka-2:9093,3@kafka-3:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      CLUSTER_ID: "OpenVASKafkaVAPTCluster1"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 | grep -q 'ApiVersion'"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  # ── Kafka Broker 3 ──────────────────────────────────────────────────────
+  kafka-3:
+    image: apache/kafka:3.9.0
+    container_name: openvas-kafka-3
+    hostname: kafka-3
+    networks:
+      kafka-openvas-net:
+        ipv4_address: 172.29.0.12
+    ports:
+      - "29096:9092"
+      - "29097:9093"
+    environment:
+      KAFKA_NODE_ID: 3
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-3:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-1:9093,2@kafka-2:9093,3@kafka-3:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      CLUSTER_ID: "OpenVASKafkaVAPTCluster1"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 | grep -q 'ApiVersion'"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  # ── ksqlDB ──────────────────────────────────────────────────────────────
+  ksqldb-server:
+    image: confluentinc/ksqldb-server:0.29.0
+    container_name: openvas-ksqldb
+    hostname: ksqldb-server
+    networks:
+      kafka-openvas-net:
+        ipv4_address: 172.29.0.20
+    ports:
+      - "28088:8088"
+    environment:
+      KSQL_BOOTSTRAP_SERVERS: "PLAINTEXT://kafka-1:9092,PLAINTEXT://kafka-2:9092,PLAINTEXT://kafka-3:9092"
+      KSQL_LISTENERS: "http://0.0.0.0:8088"
+      KSQL_KSQL_SERVICE_ID: "openvas_vapt_ksql_"
+      KSQL_KSQL_LOGGING_PROCESSING_TOPIC_AUTO_CREATE: "true"
+      KSQL_KSQL_LOGGING_PROCESSING_STREAM_AUTO_CREATE: "true"
+    depends_on:
+      kafka-1:
+        condition: service_healthy
+      kafka-2:
+        condition: service_healthy
+      kafka-3:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8088/info || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+
+  # ── OpenVAS / Greenbone Community Edition ───────────────────────────────
+  # This is the FULL OpenVAS scanner - 100% free and open-source
+  # First startup downloads vulnerability feeds (~15 min)
+  #
+  # Web UI: https://localhost:9443
+  # Default credentials: admin / admin
+  # ─────────────────────────────────────────────────────────────────────────
+  greenbone:
+    image: greenbone/openvas-scanner:latest
+    container_name: openvas-scanner
+    hostname: openvas
+    networks:
+      kafka-openvas-net:
+        ipv4_address: 172.29.0.100
+    restart: unless-stopped
+    depends_on:
+      kafka-1:
+        condition: service_healthy
+
+  gvmd:
+    image: greenbone/gvmd:latest
+    container_name: openvas-gvmd
+    hostname: gvmd
+    networks:
+      kafka-openvas-net:
+        ipv4_address: 172.29.0.101
+    environment:
+      - GVM_ADMIN_PASSWORD=admin
+    volumes:
+      - gvmd-data:/var/lib/gvm
+      - openvas-data:/var/lib/openvas
+      - vt-data:/var/lib/openvas/plugins
+    restart: unless-stopped
+    depends_on:
+      - greenbone
+      - postgres
+      - redis
+
+  gsad:
+    image: greenbone/gsad:latest
+    container_name: openvas-gsad
+    hostname: gsad
+    networks:
+      kafka-openvas-net:
+        ipv4_address: 172.29.0.102
+    ports:
+      - "9443:9392"
+    restart: unless-stopped
+    depends_on:
+      - gvmd
+
+  postgres:
+    image: greenbone/pg-gvm:latest
+    container_name: openvas-postgres
+    hostname: postgres
+    networks:
+      kafka-openvas-net:
+        ipv4_address: 172.29.0.103
+    volumes:
+      - pg-data:/var/lib/postgresql
+    restart: unless-stopped
+
+  redis:
+    image: greenbone/redis-server:latest
+    container_name: openvas-redis
+    hostname: redis
+    networks:
+      kafka-openvas-net:
+        ipv4_address: 172.29.0.104
+    volumes:
+      - redis-data:/run/redis
+    restart: unless-stopped
+
+  mqtt-broker:
+    image: greenbone/mqtt-broker:latest
+    container_name: openvas-mqtt
+    hostname: mqtt-broker
+    networks:
+      kafka-openvas-net:
+        ipv4_address: 172.29.0.105
+    restart: unless-stopped
+
+  notus-scanner:
+    image: greenbone/notus-scanner:latest
+    container_name: openvas-notus
+    hostname: notus-scanner
+    networks:
+      kafka-openvas-net:
+        ipv4_address: 172.29.0.106
+    volumes:
+      - notus-data:/var/lib/notus
+    restart: unless-stopped
+    depends_on:
+      - mqtt-broker
+
+  ospd-openvas:
+    image: greenbone/ospd-openvas:latest
+    container_name: openvas-ospd
+    hostname: ospd-openvas
+    networks:
+      kafka-openvas-net:
+        ipv4_address: 172.29.0.107
+    volumes:
+      - openvas-data:/var/lib/openvas
+      - vt-data:/var/lib/openvas/plugins
+      - ospd-data:/run/ospd
+      - redis-data:/run/redis
+    restart: unless-stopped
+    depends_on:
+      - greenbone
+      - redis
+      - mqtt-broker
+
+  gvm-tools:
+    image: greenbone/gvm-tools:latest
+    container_name: openvas-gvm-tools
+    hostname: gvm-tools
+    networks:
+      kafka-openvas-net:
+        ipv4_address: 172.29.0.108
+    volumes:
+      - gvmd-data:/var/lib/gvm
+      - ospd-data:/run/ospd
+    restart: unless-stopped
+    depends_on:
+      - gvmd
+      - ospd-openvas
+
+volumes:
+  gvmd-data:
+  openvas-data:
+  vt-data:
+  pg-data:
+  redis-data:
+  ospd-data:
+  notus-data:

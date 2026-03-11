@@ -10,6 +10,9 @@ dist/
 venv/
 .venv/
 kafka-vapt/reports/
+qualys-vapt/reports/
+qualys-vapt/config/qualys-config.env
+openvas-vapt/reports/
 backend/repo/kafka/*.tgz
 backend/repo/ksqldb/*.tgz
 *.tgz
