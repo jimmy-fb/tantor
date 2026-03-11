@@ -132,10 +132,11 @@ The `kafka-vapt/` directory contains a standalone security scanner for Kafka clu
 
 | Tool | What it does in the scan |
 |------|--------------------------|
-| **nmap** | Scans ports, detects exposed services (Kafka, ZooKeeper, JMX) |
+| **nmap** | Scans ports, detects exposed services (Kafka, ZooKeeper, JMX, ksqlDB) |
 | **openssl** | Tests TLS/SSL certificates, cipher suites, protocol versions |
 | **kcat** | Tests unauthenticated access, PLAINTEXT listeners, data exposure |
 | **Kafka CLI** | Inspects broker configs, ACLs, replication, topic settings |
+| **curl** | Tests ksqlDB REST API security, authentication, query execution |
 | **jq** | Processes JSON results, generates structured reports |
 
 ### Security Categories
@@ -148,6 +149,7 @@ The `kafka-vapt/` directory contains a standalone security scanner for Kafka clu
 | 4 | **Configuration** (CFG-*) | Auto-create topics, replication factor, HA, authorizer |
 | 5 | **Data** (DATA-*) | Sensitive topic names, data access controls, encryption at rest |
 | 6 | **Operational** (OPS-*) | JMX exposure, Kafka Connect API, Schema Registry |
+| 7 | **ksqlDB** (KSQL-*) | REST API auth, TLS, query execution, topic enumeration, schema exposure, command/processing log topics |
 
 ### Run Options
 
@@ -182,6 +184,10 @@ cd kafka-vapt
 # With Kafka CLI tools path
 ./run-kafka-vapt.sh --bootstrap broker1:9092 \
   --kafka-home /opt/kafka
+
+# With ksqlDB scanning
+./run-kafka-vapt.sh --bootstrap broker1:9092 \
+  --ksqldb http://ksqldb-host:8088
 
 # ─── Option C: Docker Mode (no local tools needed) ───
 ./run-kafka-vapt.sh --bootstrap broker1:9092 --docker

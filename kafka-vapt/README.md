@@ -10,9 +10,10 @@ Automated Vulnerability Assessment & Penetration Testing (VAPT) toolkit for Apac
 | **openssl** | TLS/SSL certificate & cipher analysis |
 | **kcat** (kafkacat) | Kafka connectivity, auth, and data access testing |
 | **Kafka CLI** | Native broker config, ACL, and metadata inspection |
+| **curl** | ksqlDB REST API security testing |
 | **jq** | JSON processing for report generation |
 
-## Security Checks (30+ checks across 6 categories)
+## Security Checks (40+ checks across 7 categories)
 
 ### 1. Network Security (NET-*)
 - Port scanning for Kafka services
@@ -54,6 +55,19 @@ Automated Vulnerability Assessment & Penetration Testing (VAPT) toolkit for Apac
 - Consumer group auditing
 - Kafka Connect REST API exposure
 - Schema Registry exposure
+
+### 7. ksqlDB Security (KSQL-*)
+- ksqlDB REST API port exposure
+- Unauthenticated REST API access
+- HTTP vs HTTPS (TLS) configuration
+- Arbitrary query execution (SHOW STREAMS/TABLES/QUERIES)
+- Kafka topic enumeration via ksqlDB
+- Schema/field exposure via DESCRIBE EXTENDED
+- ksqlDB command topic access
+- Processing log topic data leakage
+- Healthcheck endpoint exposure
+- Cluster status endpoint exposure
+- TLS certificate expiry
 
 ## Quick Start
 
@@ -107,6 +121,10 @@ cd kafka-vapt
 # With Kafka CLI tools
 ./run-kafka-vapt.sh --bootstrap broker1:9092 \
   --kafka-home /opt/kafka
+
+# With ksqlDB scanning
+./run-kafka-vapt.sh --bootstrap broker1:9092 \
+  --ksqldb http://ksqldb-host:8088
 
 # Run inside Docker (no local tools needed)
 ./run-kafka-vapt.sh --bootstrap broker1:9092 --docker
@@ -209,7 +227,7 @@ jobs:
 kafka-vapt/
 ├── run-kafka-vapt.sh              # Main VAPT scanner script
 ├── run-e2e-vapt.sh                # End-to-end runner (cluster + scan)
-├── docker-compose.kafka-test.yml  # 3-broker KRaft test cluster
+├── docker-compose.kafka-test.yml  # 3-broker KRaft test cluster + ksqlDB
 ├── Dockerfile                     # Scanner Docker image
 ├── README.md                      # This file
 ├── checks/                        # Additional check modules (extensible)

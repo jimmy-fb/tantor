@@ -24,6 +24,7 @@
 #   --kafka-home <path>       Path to Kafka installation (for CLI tools)
 #   --output <dir>            Output directory for reports (default: ./reports)
 #   --format <html|json|both> Report format (default: both)
+#   --ksqldb <host:port>      ksqlDB server address (default: auto-detect on bootstrap host:8088)
 #   --docker                  Run scans inside Docker container
 #   --help                    Show this help
 ###############################################################################
@@ -44,6 +45,7 @@ SASL_USERNAME=""
 SASL_PASSWORD=""
 CLIENT_PROPS=""
 KAFKA_HOME=""
+KSQLDB_URL=""
 OUTPUT_DIR="${SCRIPT_DIR}/reports"
 REPORT_FORMAT="both"
 USE_DOCKER=false
@@ -85,6 +87,7 @@ parse_args() {
             --sasl-password)  SASL_PASSWORD="$2"; shift 2 ;;
             --client-props)   CLIENT_PROPS="$2"; shift 2 ;;
             --kafka-home)     KAFKA_HOME="$2"; shift 2 ;;
+            --ksqldb)         KSQLDB_URL="$2"; shift 2 ;;
             --output)       OUTPUT_DIR="$2"; shift 2 ;;
             --format)       REPORT_FORMAT="$2"; shift 2 ;;
             --docker)       USE_DOCKER=true; shift ;;
@@ -106,7 +109,7 @@ check_prerequisites() {
     log_head "Checking Prerequisites"
 
     local missing=()
-    for tool in nmap openssl jq; do
+    for tool in nmap openssl jq curl; do
         if command -v "$tool" &>/dev/null; then
             log_ok "$tool found: $(command -v "$tool")"
         else
@@ -901,6 +904,328 @@ run_ops_checks() {
 }
 
 ###############################################################################
+# CATEGORY 7: ksqlDB Security
+###############################################################################
+run_ksqldb_checks() {
+    log_head "Category 7: ksqlDB Security"
+
+    local host
+    host=$(echo "$BOOTSTRAP" | cut -d: -f1)
+
+    # Auto-detect ksqlDB URL if not provided
+    if [[ -z "$KSQLDB_URL" ]]; then
+        KSQLDB_URL="http://${host}:8088"
+    fi
+
+    local ksqldb_host ksqldb_port ksqldb_scheme
+    ksqldb_scheme=$(echo "$KSQLDB_URL" | sed -E 's|^([a-z]+)://.*|\1|' || echo "http")
+    ksqldb_host=$(echo "$KSQLDB_URL" | sed -E 's|^https?://||' | cut -d: -f1)
+    ksqldb_port=$(echo "$KSQLDB_URL" | sed -E 's|^https?://||' | cut -d: -f2 | tr -d '/')
+    [[ -z "$ksqldb_port" || "$ksqldb_port" == "$ksqldb_host" ]] && ksqldb_port="8088"
+
+    log_info "Scanning ksqlDB at ${KSQLDB_URL}..."
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # KSQL-001: ksqlDB port exposure / reachability
+    # ──────────────────────────────────────────────────────────────────────────
+    local ksql_reachable=false
+    if command -v nmap &>/dev/null; then
+        local ksql_port_scan
+        ksql_port_scan=$(nmap -sV -p "$ksqldb_port" "$ksqldb_host" 2>&1) || true
+        if echo "$ksql_port_scan" | grep -q "open"; then
+            add_finding "KSQL-001" "ksqlDB" "ksqlDB port $ksqldb_port is open" "HIGH" "WARN" \
+                "ksqlDB REST API port $ksqldb_port is exposed on $ksqldb_host. The ksqlDB REST API allows arbitrary query execution including CREATE, DROP, INSERT, and SELECT." \
+                "Restrict ksqlDB port access to trusted networks only. Use firewall rules or network policies to block external access." \
+                "$ksql_port_scan"
+            ksql_reachable=true
+        else
+            add_finding "KSQL-001" "ksqlDB" "ksqlDB port $ksqldb_port is not exposed" "LOW" "PASS" \
+                "ksqlDB REST API port $ksqldb_port is not accessible on $ksqldb_host." "" "$ksql_port_scan"
+        fi
+    else
+        # Fallback: use nc or curl to test
+        if nc -z "$ksqldb_host" "$ksqldb_port" 2>/dev/null; then
+            add_finding "KSQL-001" "ksqlDB" "ksqlDB port $ksqldb_port is reachable" "HIGH" "WARN" \
+                "ksqlDB REST API port $ksqldb_port is reachable on $ksqldb_host." \
+                "Restrict ksqlDB port access to trusted networks only." ""
+            ksql_reachable=true
+        else
+            add_finding "KSQL-001" "ksqlDB" "ksqlDB port $ksqldb_port is not reachable" "LOW" "PASS" \
+                "ksqlDB REST API port $ksqldb_port is not reachable." "" ""
+        fi
+    fi
+
+    # If ksqlDB is not reachable, skip remaining ksqlDB checks
+    if [[ "$ksql_reachable" == false ]]; then
+        log_info "ksqlDB not reachable, skipping remaining ksqlDB checks"
+        return 0
+    fi
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # KSQL-002: Unauthenticated ksqlDB REST API access
+    # ──────────────────────────────────────────────────────────────────────────
+    if command -v curl &>/dev/null; then
+        log_info "Testing unauthenticated ksqlDB access..."
+        local ksql_info
+        ksql_info=$(curl -s --max-time 10 "${KSQLDB_URL}/info" 2>&1) || true
+
+        if echo "$ksql_info" | jq -e '.KsqlServerInfo' &>/dev/null 2>&1; then
+            local ksql_version ksql_cluster_id ksql_service_id
+            ksql_version=$(echo "$ksql_info" | jq -r '.KsqlServerInfo.version // "unknown"')
+            ksql_cluster_id=$(echo "$ksql_info" | jq -r '.KsqlServerInfo.kafkaClusterId // "unknown"')
+            ksql_service_id=$(echo "$ksql_info" | jq -r '.KsqlServerInfo.ksqlServiceId // "unknown"')
+
+            add_finding "KSQL-002" "ksqlDB" "Unauthenticated ksqlDB access allowed" "CRITICAL" "FAIL" \
+                "ksqlDB REST API at ${KSQLDB_URL} is accessible without authentication. Version: ${ksql_version}, Service ID: ${ksql_service_id}, Kafka Cluster: ${ksql_cluster_id}. An attacker can execute arbitrary queries, create/drop streams and tables, and access Kafka topic data." \
+                "Enable ksqlDB authentication by configuring authentication.method=BASIC and setting up credentials. For production, use ksql.authentication.plugin.class with a custom auth plugin or deploy behind an authenticating reverse proxy." \
+                "$ksql_info"
+        elif echo "$ksql_info" | grep -qi "401\|unauthorized\|forbidden\|authentication"; then
+            add_finding "KSQL-002" "ksqlDB" "ksqlDB requires authentication" "LOW" "PASS" \
+                "ksqlDB REST API requires authentication." "" ""
+        else
+            add_finding "KSQL-002" "ksqlDB" "ksqlDB info endpoint check inconclusive" "MEDIUM" "INFO" \
+                "Could not determine ksqlDB authentication status. Response: $(echo "$ksql_info" | head -c 200)" \
+                "Manually verify ksqlDB authentication configuration." "$ksql_info"
+        fi
+
+        # ──────────────────────────────────────────────────────────────────────
+        # KSQL-003: ksqlDB TLS/HTTPS check
+        # ──────────────────────────────────────────────────────────────────────
+        if [[ "$ksqldb_scheme" == "https" ]]; then
+            # Verify TLS is actually working
+            if command -v openssl &>/dev/null; then
+                local ksql_tls
+                ksql_tls=$(echo | timeout 10 openssl s_client -connect "${ksqldb_host}:${ksqldb_port}" -servername "$ksqldb_host" 2>&1) || true
+                if echo "$ksql_tls" | grep -q "BEGIN CERTIFICATE"; then
+                    add_finding "KSQL-003" "ksqlDB" "ksqlDB uses HTTPS/TLS" "LOW" "PASS" \
+                        "ksqlDB is configured with TLS encryption." "" ""
+
+                    # Check cert expiry
+                    local ksql_cert_dates
+                    ksql_cert_dates=$(echo | timeout 10 openssl s_client -connect "${ksqldb_host}:${ksqldb_port}" -servername "$ksqldb_host" 2>/dev/null | openssl x509 -noout -dates 2>&1) || true
+                    if echo "$ksql_cert_dates" | grep -q "notAfter"; then
+                        local ksql_expiry
+                        ksql_expiry=$(echo "$ksql_cert_dates" | grep "notAfter" | cut -d= -f2)
+                        local ksql_expiry_epoch
+                        ksql_expiry_epoch=$(date -j -f "%b %d %H:%M:%S %Y %Z" "$ksql_expiry" +%s 2>/dev/null || date -d "$ksql_expiry" +%s 2>/dev/null || echo "0")
+                        local now_epoch
+                        now_epoch=$(date +%s)
+                        local ksql_days_left=$(( (ksql_expiry_epoch - now_epoch) / 86400 ))
+
+                        if [[ "$ksql_days_left" -lt 30 ]]; then
+                            add_finding "KSQL-003b" "ksqlDB" "ksqlDB TLS certificate expires in $ksql_days_left days" "HIGH" "WARN" \
+                                "ksqlDB TLS certificate will expire on $ksql_expiry ($ksql_days_left days remaining)." \
+                                "Renew the ksqlDB TLS certificate." "$ksql_cert_dates"
+                        fi
+                    fi
+                else
+                    add_finding "KSQL-003" "ksqlDB" "ksqlDB HTTPS configured but TLS handshake failed" "HIGH" "FAIL" \
+                        "ksqlDB URL uses HTTPS but TLS handshake failed." \
+                        "Verify ksqlDB TLS configuration: ssl.keystore.location, ssl.keystore.password." "$ksql_tls"
+                fi
+            fi
+        else
+            add_finding "KSQL-003" "ksqlDB" "ksqlDB uses HTTP (no TLS)" "HIGH" "FAIL" \
+                "ksqlDB REST API is accessible over plain HTTP at ${KSQLDB_URL}. All queries, data, and credentials are transmitted in cleartext." \
+                "Configure ksqlDB to use HTTPS by setting listeners=https://0.0.0.0:8088 and configuring ssl.keystore.location, ssl.keystore.password, ssl.key.password." ""
+        fi
+
+        # ──────────────────────────────────────────────────────────────────────
+        # KSQL-004: Arbitrary query execution test
+        # ──────────────────────────────────────────────────────────────────────
+        log_info "Testing ksqlDB query execution..."
+        local ksql_query_resp
+        ksql_query_resp=$(curl -s --max-time 15 \
+            -H "Content-Type: application/vnd.ksql.v1+json" \
+            -X POST "${KSQLDB_URL}/ksql" \
+            -d '{"ksql": "SHOW STREAMS;", "streamsProperties": {}}' 2>&1) || true
+
+        if echo "$ksql_query_resp" | jq -e '.[0].streams' &>/dev/null 2>&1; then
+            local stream_count
+            stream_count=$(echo "$ksql_query_resp" | jq '.[0].streams | length' 2>/dev/null || echo "0")
+            add_finding "KSQL-004" "ksqlDB" "ksqlDB allows arbitrary SHOW STREAMS ($stream_count streams)" "CRITICAL" "FAIL" \
+                "Unauthenticated execution of SHOW STREAMS succeeded and returned $stream_count stream(s). This means anyone with network access can execute DDL/DML statements, read data, and modify the ksqlDB topology." \
+                "Enable authentication immediately. Restrict network access to the ksqlDB port." \
+                "$(echo "$ksql_query_resp" | head -c 500)"
+        elif echo "$ksql_query_resp" | grep -qi "401\|unauthorized\|forbidden"; then
+            add_finding "KSQL-004" "ksqlDB" "ksqlDB blocks unauthenticated queries" "LOW" "PASS" \
+                "Query execution requires authentication." "" ""
+        elif [[ -n "$ksql_query_resp" ]]; then
+            add_finding "KSQL-004" "ksqlDB" "ksqlDB query execution check inconclusive" "MEDIUM" "INFO" \
+                "Could not conclusively determine if queries are executable without auth." \
+                "Manually verify ksqlDB authentication is enforced." \
+                "$(echo "$ksql_query_resp" | head -c 300)"
+        fi
+
+        # ──────────────────────────────────────────────────────────────────────
+        # KSQL-005: SHOW TABLES check (data exposure)
+        # ──────────────────────────────────────────────────────────────────────
+        local ksql_tables_resp
+        ksql_tables_resp=$(curl -s --max-time 15 \
+            -H "Content-Type: application/vnd.ksql.v1+json" \
+            -X POST "${KSQLDB_URL}/ksql" \
+            -d '{"ksql": "SHOW TABLES;", "streamsProperties": {}}' 2>&1) || true
+
+        if echo "$ksql_tables_resp" | jq -e '.[0].tables' &>/dev/null 2>&1; then
+            local table_count
+            table_count=$(echo "$ksql_tables_resp" | jq '.[0].tables | length' 2>/dev/null || echo "0")
+            if [[ "$table_count" -gt 0 ]]; then
+                add_finding "KSQL-005" "ksqlDB" "ksqlDB exposes $table_count materialized table(s)" "HIGH" "WARN" \
+                    "SHOW TABLES returned $table_count table(s). Materialized tables may contain aggregated sensitive data accessible via pull queries." \
+                    "Restrict access to ksqlDB tables via authentication and network controls." \
+                    "$(echo "$ksql_tables_resp" | head -c 500)"
+            else
+                add_finding "KSQL-005" "ksqlDB" "No ksqlDB materialized tables found" "LOW" "PASS" \
+                    "SHOW TABLES returned 0 tables." "" ""
+            fi
+        fi
+
+        # ──────────────────────────────────────────────────────────────────────
+        # KSQL-006: SHOW QUERIES check (running persistent queries)
+        # ──────────────────────────────────────────────────────────────────────
+        local ksql_queries_resp
+        ksql_queries_resp=$(curl -s --max-time 15 \
+            -H "Content-Type: application/vnd.ksql.v1+json" \
+            -X POST "${KSQLDB_URL}/ksql" \
+            -d '{"ksql": "SHOW QUERIES;", "streamsProperties": {}}' 2>&1) || true
+
+        if echo "$ksql_queries_resp" | jq -e '.[0].queries' &>/dev/null 2>&1; then
+            local query_count
+            query_count=$(echo "$ksql_queries_resp" | jq '.[0].queries | length' 2>/dev/null || echo "0")
+            if [[ "$query_count" -gt 0 ]]; then
+                add_finding "KSQL-006" "ksqlDB" "$query_count persistent ksqlDB queries running" "MEDIUM" "INFO" \
+                    "Found $query_count running persistent queries. Persistent queries continuously process data from Kafka topics." \
+                    "Audit persistent queries regularly. Ensure TERMINATE QUERY is restricted via ACLs." \
+                    "$(echo "$ksql_queries_resp" | head -c 500)"
+            else
+                add_finding "KSQL-006" "ksqlDB" "No persistent ksqlDB queries running" "LOW" "INFO" \
+                    "No persistent queries detected." "" ""
+            fi
+        fi
+
+        # ──────────────────────────────────────────────────────────────────────
+        # KSQL-007: SHOW TOPICS via ksqlDB (Kafka topic enumeration)
+        # ──────────────────────────────────────────────────────────────────────
+        local ksql_topics_resp
+        ksql_topics_resp=$(curl -s --max-time 15 \
+            -H "Content-Type: application/vnd.ksql.v1+json" \
+            -X POST "${KSQLDB_URL}/ksql" \
+            -d '{"ksql": "SHOW TOPICS;", "streamsProperties": {}}' 2>&1) || true
+
+        if echo "$ksql_topics_resp" | jq -e '.[0].topics' &>/dev/null 2>&1; then
+            local topic_count
+            topic_count=$(echo "$ksql_topics_resp" | jq '.[0].topics | length' 2>/dev/null || echo "0")
+            add_finding "KSQL-007" "ksqlDB" "ksqlDB exposes $topic_count Kafka topics" "HIGH" "WARN" \
+                "SHOW TOPICS via ksqlDB returned $topic_count topic(s). ksqlDB provides an easy enumeration path to discover all Kafka topics without direct broker access." \
+                "Restrict ksqlDB access. Topic-level ACLs on the Kafka broker do not prevent enumeration via ksqlDB SHOW TOPICS." \
+                "$(echo "$ksql_topics_resp" | head -c 500)"
+        fi
+
+        # ──────────────────────────────────────────────────────────────────────
+        # KSQL-008: DESCRIBE EXTENDED on streams (schema exposure)
+        # ──────────────────────────────────────────────────────────────────────
+        if echo "$ksql_query_resp" | jq -e '.[0].streams[0].name' &>/dev/null 2>&1; then
+            local first_stream
+            first_stream=$(echo "$ksql_query_resp" | jq -r '.[0].streams[0].name' 2>/dev/null)
+            if [[ -n "$first_stream" ]] && [[ "$first_stream" != "null" ]]; then
+                local describe_resp
+                describe_resp=$(curl -s --max-time 15 \
+                    -H "Content-Type: application/vnd.ksql.v1+json" \
+                    -X POST "${KSQLDB_URL}/ksql" \
+                    -d "{\"ksql\": \"DESCRIBE ${first_stream} EXTENDED;\", \"streamsProperties\": {}}" 2>&1) || true
+
+                if echo "$describe_resp" | jq -e '.[0].sourceDescription' &>/dev/null 2>&1; then
+                    local fields_info
+                    fields_info=$(echo "$describe_resp" | jq -r '.[0].sourceDescription.fields[].name' 2>/dev/null | tr '\n' ', ' || echo "")
+                    local topic_name
+                    topic_name=$(echo "$describe_resp" | jq -r '.[0].sourceDescription.topic // "unknown"' 2>/dev/null)
+
+                    add_finding "KSQL-008" "ksqlDB" "ksqlDB stream schema exposed: $first_stream" "MEDIUM" "WARN" \
+                        "DESCRIBE EXTENDED on stream '${first_stream}' reveals schema details including field names (${fields_info}) and underlying Kafka topic (${topic_name}). This aids reconnaissance." \
+                        "Enable ksqlDB authentication to prevent unauthorized schema discovery." \
+                        "$(echo "$describe_resp" | head -c 500)"
+                fi
+            fi
+        fi
+
+        # ──────────────────────────────────────────────────────────────────────
+        # KSQL-009: ksqlDB command topic access
+        # ──────────────────────────────────────────────────────────────────────
+        local kcat_cmd
+        kcat_cmd=$(get_kcat_cmd)
+        if [[ -n "$kcat_cmd" ]]; then
+            log_info "Checking ksqlDB command topic access..."
+            local kcat_args
+            kcat_args=$(build_kcat_args)
+
+            # ksqlDB stores its metadata in _confluent-ksql-<service_id>command_topic
+            local ksql_cmd_topics
+            ksql_cmd_topics=$($kcat_cmd $kcat_args -L -J 2>&1 | jq -r '.topics[].topic' 2>/dev/null | grep -i "ksql.*command" || true)
+
+            if [[ -n "$ksql_cmd_topics" ]]; then
+                add_finding "KSQL-009" "ksqlDB" "ksqlDB command topic accessible" "HIGH" "WARN" \
+                    "ksqlDB command topic(s) detected: $ksql_cmd_topics. The command topic stores all ksqlDB DDL/DML statements including CREATE STREAM/TABLE definitions. Reading it reveals the complete ksqlDB topology." \
+                    "Restrict access to ksqlDB command topics via Kafka ACLs. Set ksql.service.id to a unique value and protect the corresponding _confluent-ksql-<id>command_topic." ""
+            else
+                add_finding "KSQL-009" "ksqlDB" "No ksqlDB command topics detected" "LOW" "PASS" \
+                    "No ksqlDB command topics found in topic listing." "" ""
+            fi
+        fi
+
+        # ──────────────────────────────────────────────────────────────────────
+        # KSQL-010: ksqlDB processing log topic exposure
+        # ──────────────────────────────────────────────────────────────────────
+        if [[ -n "$kcat_cmd" ]]; then
+            local kcat_args
+            kcat_args=$(build_kcat_args)
+            local ksql_log_topics
+            ksql_log_topics=$($kcat_cmd $kcat_args -L -J 2>&1 | jq -r '.topics[].topic' 2>/dev/null | grep -iE "ksql.*processing.*log|KSQL_PROCESSING_LOG" || true)
+
+            if [[ -n "$ksql_log_topics" ]]; then
+                add_finding "KSQL-010" "ksqlDB" "ksqlDB processing log topic exposed" "MEDIUM" "WARN" \
+                    "ksqlDB processing log topic(s) detected: $ksql_log_topics. Processing logs may contain row-level data from failed records, including sensitive field values." \
+                    "Restrict ACL access to processing log topics. Consider setting ksql.logging.processing.rows.include=false to prevent data leakage in logs." ""
+            else
+                add_finding "KSQL-010" "ksqlDB" "No ksqlDB processing log topics exposed" "LOW" "PASS" \
+                    "No ksqlDB processing log topics found." "" ""
+            fi
+        fi
+
+        # ──────────────────────────────────────────────────────────────────────
+        # KSQL-011: ksqlDB healthcheck endpoint
+        # ──────────────────────────────────────────────────────────────────────
+        local ksql_health
+        ksql_health=$(curl -s --max-time 10 "${KSQLDB_URL}/healthcheck" 2>&1) || true
+        if echo "$ksql_health" | jq -e '.isHealthy' &>/dev/null 2>&1; then
+            local is_healthy
+            is_healthy=$(echo "$ksql_health" | jq -r '.isHealthy' 2>/dev/null)
+            add_finding "KSQL-011" "ksqlDB" "ksqlDB healthcheck endpoint exposed (healthy=$is_healthy)" "MEDIUM" "WARN" \
+                "The /healthcheck endpoint is publicly accessible and reveals server health status. This aids attacker reconnaissance." \
+                "Restrict healthcheck endpoint access to monitoring systems only via network policies or reverse proxy rules." \
+                "$ksql_health"
+        fi
+
+        # ──────────────────────────────────────────────────────────────────────
+        # KSQL-012: ksqlDB server status/cluster status endpoint
+        # ──────────────────────────────────────────────────────────────────────
+        local ksql_cluster_status
+        ksql_cluster_status=$(curl -s --max-time 10 "${KSQLDB_URL}/clusterStatus" 2>&1) || true
+        if echo "$ksql_cluster_status" | jq -e '.clusterStatus' &>/dev/null 2>&1; then
+            local node_count
+            node_count=$(echo "$ksql_cluster_status" | jq '.clusterStatus | length' 2>/dev/null || echo "0")
+            add_finding "KSQL-012" "ksqlDB" "ksqlDB cluster status exposed ($node_count nodes)" "MEDIUM" "WARN" \
+                "The /clusterStatus endpoint reveals the ksqlDB cluster topology including $node_count node(s), their hostnames, ports, and liveness status." \
+                "Restrict /clusterStatus endpoint access. Deploy ksqlDB behind an authenticating reverse proxy." \
+                "$(echo "$ksql_cluster_status" | head -c 500)"
+        fi
+
+    else
+        add_finding "KSQL-002" "ksqlDB" "curl not available - ksqlDB checks limited" "INFO" "INFO" \
+            "Install curl to enable ksqlDB REST API security checks." "" ""
+    fi
+}
+
+###############################################################################
 # Generate HTML Report
 ###############################################################################
 generate_html_report() {
@@ -1140,7 +1465,7 @@ EOF
     cat >> "$html_file" <<EOF
 <div class="footer">
   <p>Generated by Kafka VAPT Scanner | Open Source Security Toolkit</p>
-  <p>Tools: nmap, openssl, kcat, kafka CLI, jq</p>
+  <p>Tools: nmap, openssl, kcat, kafka CLI, curl, jq</p>
   <p>Scan completed: $(date '+%Y-%m-%d %H:%M:%S %Z')</p>
 </div>
 </div>
@@ -1203,6 +1528,7 @@ run_in_docker() {
     [[ -n "$SASL_MECHANISM" ]]  && args+=("--sasl-mechanism" "$SASL_MECHANISM")
     [[ -n "$SASL_USERNAME" ]]   && args+=("--sasl-username" "$SASL_USERNAME")
     [[ -n "$SASL_PASSWORD" ]]   && args+=("--sasl-password" "$SASL_PASSWORD")
+    [[ -n "$KSQLDB_URL" ]]     && args+=("--ksqldb" "$KSQLDB_URL")
     args+=("--output" "/reports")
     args+=("--format" "$REPORT_FORMAT")
 
@@ -1247,6 +1573,7 @@ main() {
     run_config_checks   || true
     run_data_checks     || true
     run_ops_checks      || true
+    run_ksqldb_checks   || true
 
     # Generate reports
     generate_html_report

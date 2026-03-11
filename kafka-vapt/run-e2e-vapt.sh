@@ -98,7 +98,7 @@ fi
 # Step 2: Start Kafka cluster
 ###############################################################################
 if [[ "$SKIP_SETUP" == false ]]; then
-    log_step "Step 2: Starting 3-broker KRaft Kafka cluster"
+    log_step "Step 2: Starting 3-broker KRaft Kafka cluster + ksqlDB"
 
     # Stop any existing cluster
     docker compose -f "$COMPOSE_FILE" down -v 2>/dev/null || true
@@ -171,6 +171,35 @@ if [[ "$SKIP_SETUP" == false ]]; then
         --bootstrap-server kafka-1:9092 --topic test-topic 2>/dev/null || true
     log_ok "Test messages produced"
 
+    # Wait for ksqlDB to be ready
+    log_info "Waiting for ksqlDB to be ready..."
+    WAIT=0
+    MAX_WAIT_KSQL=90
+    while [[ $WAIT -lt $MAX_WAIT_KSQL ]]; do
+        if curl -s --max-time 5 http://localhost:8088/info 2>/dev/null | grep -q "KsqlServerInfo"; then
+            break
+        fi
+        sleep 3
+        WAIT=$((WAIT + 3))
+        echo -ne "\r  Waiting for ksqlDB... ${WAIT}s / ${MAX_WAIT_KSQL}s"
+    done
+    echo ""
+
+    if [[ $WAIT -ge $MAX_WAIT_KSQL ]]; then
+        log_warn "ksqlDB did not start within ${MAX_WAIT_KSQL}s (scan will skip ksqlDB checks)"
+    else
+        log_ok "ksqlDB is ready at http://localhost:8088"
+
+        # Create a test ksqlDB stream for scanning
+        log_info "Creating test ksqlDB stream..."
+        curl -s --max-time 15 \
+            -H "Content-Type: application/vnd.ksql.v1+json" \
+            -X POST "http://localhost:8088/ksql" \
+            -d '{"ksql": "CREATE STREAM IF NOT EXISTS user_events_stream (user_id VARCHAR KEY, action VARCHAR, timestamp VARCHAR) WITH (KAFKA_TOPIC='\''user-events'\'', VALUE_FORMAT='\''JSON'\'', PARTITIONS=2);", "streamsProperties": {}}' \
+            2>/dev/null || true
+        log_ok "Test ksqlDB stream created"
+    fi
+
 else
     log_step "Step 2: Skipping cluster setup (--skip-setup)"
     log_info "Using existing cluster at $BOOTSTRAP"
@@ -185,6 +214,7 @@ chmod +x "${SCRIPT_DIR}/run-kafka-vapt.sh"
 
 "${SCRIPT_DIR}/run-kafka-vapt.sh" \
     --bootstrap "$BOOTSTRAP" \
+    --ksqldb "http://localhost:8088" \
     --output "${SCRIPT_DIR}/reports" \
     --format both
 
