@@ -1,0 +1,102 @@
+###############################################################################
+# Tantor — All-in-One Installer Image (Ubuntu 22.04)
+#
+# Contains: Python 3.12 + FastAPI backend, React frontend (pre-built),
+#           Nginx reverse proxy, Supervisor process manager, SSH/Ansible
+#
+# Ports: 80 (HTTP), 443 (HTTPS optional)
+# Login: admin / admin
+###############################################################################
+
+# ═══════════════════════════════════════════════════════
+# Stage 1: Build the frontend
+# ═══════════════════════════════════════════════════════
+FROM node:22-alpine AS frontend-build
+WORKDIR /build
+COPY frontend/package.json frontend/package-lock.json* ./
+RUN npm ci --prefer-offline
+COPY frontend/ .
+RUN npm run build
+
+# ═══════════════════════════════════════════════════════
+# Stage 2: All-in-one runtime
+# ═══════════════════════════════════════════════════════
+FROM ubuntu:22.04
+
+LABEL maintainer="Tantor Team"
+LABEL description="Tantor Kafka Manager — All-in-One (Ubuntu)"
+LABEL version="1.0.0"
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV LANG=C.UTF-8
+ENV PYTHONUNBUFFERED=1
+ENV TANTOR_HOME=/opt/tantor
+ENV TANTOR_DATA=/var/lib/tantor
+ENV TANTOR_LOG=/var/log/tantor
+
+# ─── System packages ───
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.11 \
+    python3.11-venv \
+    python3-pip \
+    nginx \
+    supervisor \
+    openssh-client \
+    sshpass \
+    wget \
+    curl \
+    jq \
+    gnupg \
+    ca-certificates \
+    net-tools \
+    && rm -rf /var/lib/apt/lists/*
+
+# ─── Create directory structure ───
+RUN mkdir -p \
+    ${TANTOR_HOME}/backend \
+    ${TANTOR_HOME}/frontend \
+    ${TANTOR_HOME}/bin \
+    ${TANTOR_DATA}/db \
+    ${TANTOR_DATA}/repo \
+    ${TANTOR_DATA}/ansible_work \
+    ${TANTOR_DATA}/ssh \
+    ${TANTOR_LOG}/backend \
+    ${TANTOR_LOG}/nginx
+
+# ─── Install Python dependencies ───
+COPY backend/requirements.txt ${TANTOR_HOME}/backend/
+RUN pip3 install --no-cache-dir -r ${TANTOR_HOME}/backend/requirements.txt
+
+# ─── Copy backend ───
+COPY backend/app ${TANTOR_HOME}/backend/app/
+RUN mkdir -p ${TANTOR_HOME}/backend/repo ${TANTOR_HOME}/backend/ansible_work
+
+# ─── Symlink data directories so backend finds them ───
+RUN ln -sf ${TANTOR_DATA}/db/tantor.db ${TANTOR_HOME}/backend/tantor.db && \
+    ln -sf ${TANTOR_DATA}/repo ${TANTOR_HOME}/backend/repo && \
+    ln -sf ${TANTOR_DATA}/ansible_work ${TANTOR_HOME}/backend/ansible_work
+
+# ─── Copy pre-built frontend ───
+COPY --from=frontend-build /build/dist ${TANTOR_HOME}/frontend/dist/
+
+# ─── Nginx config ───
+RUN rm -f /etc/nginx/sites-enabled/default
+COPY installer/config/nginx-tantor.conf /etc/nginx/sites-enabled/tantor.conf
+
+# ─── Supervisor config ───
+COPY installer/config/supervisord.conf /etc/supervisor/conf.d/tantor.conf
+
+# ─── Management CLI ───
+COPY installer/scripts/tantorctl.sh ${TANTOR_HOME}/bin/tantorctl
+RUN chmod +x ${TANTOR_HOME}/bin/tantorctl && \
+    ln -sf ${TANTOR_HOME}/bin/tantorctl /usr/local/bin/tantorctl
+
+# ─── Healthcheck ───
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD curl -sf http://localhost/api/health || exit 1
+
+EXPOSE 80
+
+WORKDIR ${TANTOR_HOME}
+
+CMD ["/usr/bin/supervisord", "-n", "-c", "/etc/supervisor/supervisord.conf"]

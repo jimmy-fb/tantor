@@ -1,0 +1,25 @@
+[Unit]
+Description=Tantor Kafka Manager — Backend API
+After=network.target
+Wants=nginx.service
+
+[Service]
+Type=simple
+User=tantor
+Group=tantor
+WorkingDirectory=/opt/tantor/backend
+Environment=DATABASE_URL=sqlite:////var/lib/tantor/db/tantor.db
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/local/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 2
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/tantor/backend/stdout.log
+StandardError=append:/var/log/tantor/backend/stderr.log
+
+# Hardening
+NoNewPrivileges=false
+ProtectSystem=false
+
+[Install]
+WantedBy=multi-user.target
