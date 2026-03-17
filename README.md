@@ -1,406 +1,366 @@
-# Tantor - Kafka Cluster Management & Security Platform
+# Tantor — Kafka Cluster Manager
 
-Tantor is a full-stack platform for deploying, managing, and security-scanning Apache Kafka clusters. It combines a web-based management UI with automated VAPT (Vulnerability Assessment & Penetration Testing) scanning.
+Deploy, manage, and secure Apache Kafka clusters from a single web UI. Think of it as **Cloudera Manager for Kafka** — install Tantor on one server, point it at your Linux machines, and deploy production Kafka clusters in minutes.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      Your Browser                           │
+│              http://<tantor-server-ip>                       │
+└────────────────────────┬────────────────────────────────────┘
+                         │
+┌────────────────────────▼────────────────────────────────────┐
+│                  Tantor Server                              │
+│          (installed on any Linux machine)                   │
+│                                                             │
+│   ┌──────────┐  ┌──────────┐  ┌──────────────────────┐     │
+│   │ Web UI   │  │ REST API │  │ Deployment Engine    │     │
+│   │ React    │  │ FastAPI  │  │ Ansible + SSH        │     │
+│   └──────────┘  └──────────┘  └──────┬───────────────┘     │
+└──────────────────────────────────────┼──────────────────────┘
+                                       │ SSH
+                    ┌──────────────────┼──────────────────┐
+                    │                  │                   │
+             ┌──────▼──────┐   ┌──────▼──────┐   ┌───────▼─────┐
+             │  Kafka Node  │   │  Kafka Node  │   │  Kafka Node  │
+             │  Broker +    │   │  Broker +    │   │  Broker +    │
+             │  Controller  │   │  Controller  │   │  Controller  │
+             └─────────────┘   └─────────────┘   └──────────────┘
+```
 
 ---
 
-## Architecture
+## Supported Operating Systems
 
-```
-┌──────────────────────────────────────────────────────────┐
-│                     Tantor Platform                      │
-├──────────────┬──────────────┬────────────────────────────┤
-│   Frontend   │   Backend    │     Security Scanning           │
-│  React + TS  │   FastAPI    │                                 │
-│   Vite SPA   │  Python 3.12 │  ┌──────────┐ ┌─────────────┐  │
-│              │              │  │ vapt-scan│ │ kafka-vapt  │  │
-│  Mantine UI  │  SQLAlchemy  │  │ OWASP ZAP│ │ nmap+kcat   │  │
-│              │  Ansible     │  │ Web App  │ │ Kafka-specific│ │
-│              │  Paramiko    │  │ Scanner  │ └─────────────┘  │
-│              │              │  └──────────┘                   │
-│              │              │  ┌──────────┐ ┌─────────────┐  │
-│              │              │  │qualys-   │ │openvas-vapt │  │
-│              │              │  │  vapt    │ │ Greenbone CE│  │
-│              │              │  │Qualys CE │ │ 80K+ NVTs   │  │
-│              │              │  └──────────┘ └─────────────┘  │
-├──────────────┴──────────────┴────────────────────────────┤
-│              Kafka Clusters (KRaft Mode)                 │
-│          Deployed via SSH + Ansible Playbooks             │
-└──────────────────────────────────────────────────────────┘
-```
+Tantor installs natively on any of these Linux distributions (no Docker required):
 
-## Project Structure
+| OS | Versions | Tested |
+|----|----------|--------|
+| **Ubuntu** | 20.04, 22.04, 24.04 | Yes |
+| **RHEL** | 8, 9 | Yes |
+| **Rocky Linux** | 8, 9 | Yes |
+| **CentOS** | Stream 8, Stream 9 | Yes |
+| **Oracle Linux** | 8, 9 | Yes |
+| **AlmaLinux** | 8, 9 | Yes |
+| **Amazon Linux** | 2023 | Yes |
+| **Debian** | 11, 12 | Yes |
 
-```
-tantor/
-├── backend/                 # FastAPI backend (Python 3.12)
-│   ├── app/
-│   │   ├── api/             # REST API routes (auth, clusters, topics, etc.)
-│   │   ├── models/          # SQLAlchemy ORM models
-│   │   ├── schemas/         # Pydantic request/response schemas
-│   │   ├── services/        # Business logic (SSH, Ansible, Kafka admin)
-│   │   └── templates/       # Jinja2 templates for Ansible/configs
-│   ├── requirements.txt
-│   └── Dockerfile
-│
-├── frontend/                # React + TypeScript SPA
-│   ├── src/
-│   │   ├── pages/           # Dashboard, Clusters, Hosts, Topics, etc.
-│   │   ├── components/      # Reusable UI components
-│   │   ├── hooks/           # Custom React hooks (WebSocket, etc.)
-│   │   └── lib/             # API client, auth utilities
-│   ├── package.json
-│   └── Dockerfile.prod
-│
-├── kafka-vapt/              # Kafka-specific VAPT scanner (custom, open-source)
-│   ├── run-kafka-vapt.sh    # Main scanner (40+ security checks)
-│   ├── run-e2e-vapt.sh      # End-to-end runner (cluster + scan)
-│   ├── docker-compose.kafka-test.yml  # Test cluster (3-broker KRaft)
-│   ├── Dockerfile           # Containerized scanner
-│   └── README.md            # Detailed scanner docs
-│
-├── qualys-vapt/             # Qualys Community Edition VAPT scanner
-│   ├── run-qualys-vapt.sh   # Qualys CE API + manual scan guide
-│   ├── run-e2e-qualys.sh    # End-to-end pipeline
-│   ├── docker-compose.qualys-test.yml  # Test cluster for Qualys
-│   ├── config/              # Qualys API configuration
-│   └── README.md
-│
-├── openvas-vapt/            # OpenVAS/Greenbone VAPT scanner (100% open-source)
-│   ├── run-openvas-vapt.sh  # GMP API-based automated scanner
-│   ├── run-e2e-openvas.sh   # End-to-end pipeline
-│   ├── docker-compose.openvas-test.yml  # Kafka + full OpenVAS stack
-│   └── README.md
-│
-├── vapt-scan/               # Web application VAPT scanner (OWASP ZAP)
-│   ├── run-vapt.sh          # ZAP scanning wrapper
-│   └── README.md
-│
-├── docker-compose.yml       # Production deployment
-├── docker-compose.e2e.yml   # E2E test environment
-├── Caddyfile                # Caddy reverse proxy config
-├── nginx.conf               # Nginx reverse proxy config
-└── e2e-test.sh              # E2E integration test script
-```
+> Docker-based installation is also available as an alternative.
 
 ---
 
 ## Prerequisites
 
-| Tool | Version | Purpose |
+### Tantor Server (the machine where you install Tantor)
+
+| Requirement | Minimum |
+|-------------|---------|
+| **OS** | Any supported Linux (see above) |
+| **RAM** | 4 GB |
+| **Disk** | 20 GB free |
+| **CPU** | 2 cores |
+| **Network** | SSH access to all Kafka target nodes |
+| **Ports** | 80 (web UI) |
+| **User** | Root or sudo access (for installation) |
+
+> The installer automatically installs all dependencies: Python 3, Node.js, Nginx, Ansible, and SSH tools. You don't need to install anything beforehand.
+
+### Kafka Target Nodes (the machines where Kafka will be deployed)
+
+| Requirement | Minimum |
+|-------------|---------|
+| **OS** | Any supported Linux (see above) |
+| **RAM** | 4 GB (8 GB recommended for production) |
+| **Disk** | 50 GB+ (depends on data retention) |
+| **CPU** | 2 cores (4 recommended) |
+| **Java** | Java 17+ (Tantor installs this automatically during deployment) |
+| **Network** | SSH accessible from Tantor server |
+| **Ports** | 22 (SSH), 9092 (Kafka), 9093 (KRaft controller) |
+| **User** | SSH user with sudo privileges |
+
+---
+
+## Installation
+
+### Step 1: Download Tantor
+
+```bash
+git clone https://github.com/jimmy-fb/tantor.git
+cd tantor
+```
+
+### Step 2: Install
+
+```bash
+sudo ./installer/install.sh
+```
+
+That's it. The installer:
+- Detects your OS automatically (Ubuntu/Debian or RHEL/CentOS/Rocky/Oracle)
+- Installs all system dependencies (Python 3, Node.js 22, Nginx, Ansible, SSH tools)
+- Builds the frontend
+- Configures Nginx as reverse proxy on port 80
+- Sets up systemd services for automatic startup
+- Creates the `tantorctl` CLI tool
+- Creates the `tantor` system user
+
+### Step 3: Verify
+
+```bash
+tantorctl health
+# ✓ Tantor is running — http://localhost
+```
+
+### Step 4: Open the UI
+
+Open `http://<your-server-ip>` in a browser.
+
+**Default login:** `admin` / `admin`
+
+> Change the password after first login.
+
+---
+
+## How to Deploy a Kafka Cluster
+
+### 1. Add Your Servers
+
+Go to **Hosts** in the left sidebar and click **Add Host**.
+
+For each server that will run Kafka, enter:
+- **Hostname** — A friendly name (e.g., `kafka-1`)
+- **IP Address** — The private IP of the server
+- **SSH Port** — Usually `22`
+- **Username** — SSH user (e.g., `ubuntu`, `ec2-user`, `root`)
+- **Authentication** — Password or SSH private key
+
+Click **Test Connection** to verify SSH access.
+
+### 2. Create a Cluster
+
+Go to **Clusters** and click **Create Cluster**.
+
+- **Cluster Name** — e.g., `production-cluster`
+- **Kafka Version** — Select version (default: 3.7.0)
+- **Mode** — KRaft (recommended) or ZooKeeper
+
+### 3. Assign Roles
+
+For each host, assign a role:
+
+| Role | Description |
+|------|-------------|
+| **Broker + Controller** | Combined mode (recommended for 3-node clusters) |
+| **Broker** | Data node only (for larger clusters) |
+| **Controller** | KRaft controller only (for larger clusters) |
+| **ksqlDB** | Stream processing engine |
+| **Kafka Connect** | Data integration connectors |
+
+### 4. Deploy
+
+Click **Deploy**. Tantor will:
+
+1. Validate SSH connections to all nodes
+2. Install Java and prerequisites on each node
+3. Upload Kafka binaries
+4. Generate per-node configurations
+5. Format KRaft storage
+6. Start Kafka as a systemd service
+7. Verify cluster health
+
+Watch the deployment in real-time via the live log stream.
+
+### 5. Manage
+
+Once deployed, use the UI to:
+
+| Feature | Description |
+|---------|-------------|
+| **Topics** | Create, delete, configure topics. Adjust partitions and replication. |
+| **Consumer Groups** | View consumer lag, offsets, and group members. |
+| **Broker Config** | Modify broker settings with audit trail and rollback. |
+| **ACLs** | Manage access control lists for topics and groups. |
+| **SASL Users** | Create and manage SCRAM-SHA authentication users. |
+| **Rolling Restart** | Zero-downtime broker restarts. |
+| **Cluster Upgrades** | Upgrade Kafka versions across the cluster. |
+| **Monitoring** | Deploy Prometheus + Grafana dashboards. |
+| **Cluster Linking** | Set up MirrorMaker 2 between clusters. |
+| **ksqlDB** | SQL console for stream processing queries. |
+| **Kafka Connect** | Deploy and manage data connectors. |
+| **Security Scan** | Run VAPT security assessment on the cluster. |
+| **Service Logs** | View broker logs from the UI. |
+
+---
+
+## Uploading Kafka Binaries (Air-Gapped Environments)
+
+If your servers don't have internet access, upload Kafka binaries to Tantor first:
+
+1. Download the Kafka tarball on a machine with internet:
+   ```bash
+   curl -O https://downloads.apache.org/kafka/3.7.0/kafka_2.13-3.7.0.tgz
+   ```
+
+2. Copy it to the Tantor server:
+   ```bash
+   scp kafka_2.13-3.7.0.tgz user@tantor-server:/var/lib/tantor/repo/kafka/
+   ```
+
+3. Set ownership:
+   ```bash
+   sudo chown tantor:tantor /var/lib/tantor/repo/kafka/kafka_2.13-3.7.0.tgz
+   ```
+
+The binary is now available for deployment. Tantor copies it to each Kafka node during deployment.
+
+---
+
+## CLI Tool — `tantorctl`
+
+After installation, use `tantorctl` for server management:
+
+```bash
+tantorctl status           # Show service status
+tantorctl start            # Start Tantor services
+tantorctl stop             # Stop Tantor services
+tantorctl restart          # Restart services
+tantorctl health           # Check if Tantor is running
+tantorctl logs             # Tail all logs
+tantorctl logs backend     # Tail backend logs only
+tantorctl logs nginx       # Tail nginx logs only
+tantorctl logs error       # Tail error logs only
+tantorctl version          # Show version and paths
+tantorctl backup           # Backup database
+tantorctl restore <file>   # Restore database from backup
+tantorctl reset-password   # Reset admin password to 'admin'
+```
+
+---
+
+## Ports
+
+| Port | Service | Open To |
 |------|---------|---------|
-| Docker | 20+ | Container runtime |
-| Node.js | 18+ | Frontend build |
-| Python | 3.12+ | Backend runtime |
-| nmap | any | Network scanning (VAPT) |
-| kcat | 1.7+ | Kafka testing (VAPT) |
-| jq | any | JSON processing (VAPT) |
+| **80** | Tantor Web UI | Your browser |
+| **22** | SSH | Tantor server → Kafka nodes |
+| **9092** | Kafka broker | Applications, inter-broker |
+| **9093** | KRaft controller | Inter-broker only |
+| **8088** | ksqlDB REST API | Applications (if deployed) |
+| **8083** | Kafka Connect REST API | Applications (if deployed) |
+| **9090** | Prometheus | Internal (if monitoring deployed) |
+| **3000** | Grafana | Via Tantor UI (if monitoring deployed) |
 
-### Install scanning tools
+---
 
-```bash
-# macOS
-brew install nmap jq kcat
+## Directory Structure (After Installation)
 
-# Ubuntu / Debian
-sudo apt-get install -y nmap jq kafkacat
+```
+/opt/tantor/                    # Application home
+  ├── backend/                  # FastAPI backend
+  ├── frontend/dist/            # Built React frontend
+  └── bin/tantorctl             # CLI tool
+
+/var/lib/tantor/                # Persistent data
+  ├── db/tantor.db              # SQLite database
+  ├── repo/kafka/               # Kafka binaries (air-gapped repo)
+  ├── ansible_work/             # Generated playbooks and logs
+  └── ssh/                      # SSH key storage
+
+/var/log/tantor/                # Logs
+  ├── backend/                  # API server logs
+  └── nginx/                    # Web server logs
 ```
 
 ---
 
-## Quick Start
+## Docker Installation (Alternative)
 
-### 1. Start the Platform
-
-```bash
-# Start backend + frontend
-docker compose up -d
-
-# Open the UI
-open http://localhost
-# Default login: admin / admin
-```
-
-### 2. Deploy a Kafka Cluster (via UI)
-
-1. **Add Hosts** - Navigate to Hosts, add your target servers (SSH credentials)
-2. **Create Cluster** - Go to Clusters > New, select KRaft mode
-3. **Configure Brokers** - Assign broker/controller roles to hosts
-4. **Deploy** - Click Deploy and monitor progress in real-time
-
-### 3. Run VAPT Security Scan on the Cluster
+If you prefer Docker over native install:
 
 ```bash
-cd kafka-vapt
+# Ubuntu-based image
+sudo ./installer/install.sh --docker
 
-# Scan your deployed cluster
-./run-kafka-vapt.sh --bootstrap <broker-ip>:9092
-
-# Or run the full end-to-end (spins up a test cluster, scans it, generates report)
-./run-e2e-vapt.sh
+# RHEL-based image
+sudo ./installer/install.sh --docker --rhel
 ```
+
+This builds an all-in-one Docker image with everything bundled (Nginx + Backend + Frontend).
 
 ---
 
-## Kafka VAPT Scanner - How to Use
-
-The `kafka-vapt/` directory contains a standalone security scanner for Kafka clusters. It performs **30+ automated checks** across 6 security categories using open-source tools.
-
-### Open-Source Tools Used
-
-| Tool | What it does in the scan |
-|------|--------------------------|
-| **nmap** | Scans ports, detects exposed services (Kafka, ZooKeeper, JMX, ksqlDB) |
-| **openssl** | Tests TLS/SSL certificates, cipher suites, protocol versions |
-| **kcat** | Tests unauthenticated access, PLAINTEXT listeners, data exposure |
-| **Kafka CLI** | Inspects broker configs, ACLs, replication, topic settings |
-| **curl** | Tests ksqlDB REST API security, authentication, query execution |
-| **jq** | Processes JSON results, generates structured reports |
-
-### Security Categories
-
-| # | Category | What it checks |
-|---|----------|----------------|
-| 1 | **Network** (NET-*) | Open ports, unnecessary services, ZooKeeper exposure |
-| 2 | **TLS/SSL** (TLS-*) | Encryption enabled, cert expiry, weak ciphers, old protocols |
-| 3 | **Authentication** (AUTH-*) | Unauth access, PLAINTEXT listeners, ACLs, SASL config |
-| 4 | **Configuration** (CFG-*) | Auto-create topics, replication factor, HA, authorizer |
-| 5 | **Data** (DATA-*) | Sensitive topic names, data access controls, encryption at rest |
-| 6 | **Operational** (OPS-*) | JMX exposure, Kafka Connect API, Schema Registry |
-| 7 | **ksqlDB** (KSQL-*) | REST API auth, TLS, query execution, topic enumeration, schema exposure, command/processing log topics |
-
-### Run Options
+## Uninstall
 
 ```bash
-cd kafka-vapt
-
-# ─── Option A: Full End-to-End (includes test cluster) ───
-./run-e2e-vapt.sh                    # Start cluster → scan → report → cleanup
-./run-e2e-vapt.sh --no-cleanup       # Keep cluster running after scan
-./run-e2e-vapt.sh --skip-setup       # Use an already-running cluster
-
-# ─── Option B: Scan an Existing Cluster ───
-./run-kafka-vapt.sh --bootstrap broker1:9092
-
-# Multiple brokers
-./run-kafka-vapt.sh --bootstrap broker1:9092 \
-  --brokers broker1:9092,broker2:9092,broker3:9092
-
-# With SSL/TLS
-./run-kafka-vapt.sh --bootstrap broker1:9093 --ssl
-
-# With SASL authentication
-./run-kafka-vapt.sh --bootstrap broker1:9092 \
-  --sasl-mechanism SCRAM-SHA-256 \
-  --sasl-username admin \
-  --sasl-password secret
-
-# With a client.properties file
-./run-kafka-vapt.sh --bootstrap broker1:9092 \
-  --client-props /path/to/client.properties
-
-# With Kafka CLI tools path
-./run-kafka-vapt.sh --bootstrap broker1:9092 \
-  --kafka-home /opt/kafka
-
-# With ksqlDB scanning
-./run-kafka-vapt.sh --bootstrap broker1:9092 \
-  --ksqldb http://ksqldb-host:8088
-
-# ─── Option C: Docker Mode (no local tools needed) ───
-./run-kafka-vapt.sh --bootstrap broker1:9092 --docker
+sudo ./installer/install.sh --uninstall
 ```
 
-### Report Output
-
-Reports are saved in `kafka-vapt/reports/`:
-
-| File | Format | Usage |
-|------|--------|-------|
-| `*-report.html` | HTML | Interactive dashboard, open in browser |
-| `*-results.json` | JSON | CI/CD integration, programmatic access |
-
-#### Security Grading
-
-| Grade | Meaning |
-|-------|---------|
-| **A** | No failures, no warnings - production ready |
-| **B+** | No failures, 1-2 minor warnings |
-| **B** | No failures, 3-5 warnings |
-| **C** | 1 failure or 6+ warnings - needs attention |
-| **D** | 2-3 failures - significant security gaps |
-| **F** | 4+ failures or any critical finding - not production ready |
-
-### Example: Scan a Local Test Cluster
-
-```bash
-cd kafka-vapt
-
-# 1. Start the 3-broker KRaft test cluster
-docker compose -f docker-compose.kafka-test.yml up -d
-
-# 2. Wait for brokers to be ready (~30 seconds)
-sleep 30
-
-# 3. Run the VAPT scan
-./run-kafka-vapt.sh --bootstrap localhost:9092 --output ./reports --format both
-
-# 4. Open the HTML report
-open ./reports/*-report.html
-
-# 5. Cleanup
-docker compose -f docker-compose.kafka-test.yml down -v
-```
-
-### CI/CD Integration (GitHub Actions)
-
-```yaml
-name: Kafka Security Scan
-on:
-  schedule:
-    - cron: '0 6 * * 1'    # Weekly Monday 6am
-  workflow_dispatch:        # Manual trigger
-
-jobs:
-  vapt-scan:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install scanning tools
-        run: sudo apt-get update && sudo apt-get install -y nmap jq kafkacat
-
-      - name: Start test Kafka cluster
-        run: |
-          cd kafka-vapt
-          docker compose -f docker-compose.kafka-test.yml up -d
-          sleep 30
-
-      - name: Run VAPT scan
-        run: |
-          cd kafka-vapt
-          chmod +x run-kafka-vapt.sh
-          ./run-kafka-vapt.sh --bootstrap localhost:9092 --format both
-
-      - name: Upload reports
-        uses: actions/upload-artifact@v4
-        with:
-          name: kafka-vapt-report
-          path: kafka-vapt/reports/
-
-      - name: Teardown
-        if: always()
-        run: cd kafka-vapt && docker compose -f docker-compose.kafka-test.yml down -v
-```
+Removes all Tantor files, services, and the `tantor` system user. Does **not** affect deployed Kafka clusters.
 
 ---
 
-## Web Application VAPT Scanner
+## AWS Deployment (Terraform)
 
-The `vapt-scan/` directory contains OWASP ZAP-based security scanning for the Tantor web UI and API.
+For cloud testing, Terraform scripts are included to provision infrastructure on AWS and deploy Tantor + a Kafka cluster automatically:
 
 ```bash
-cd vapt-scan
+cd terraform
+cp terraform.tfvars.example terraform.tfvars
+terraform init
 
-# Baseline (passive) scan of the backend API
-./run-vapt.sh --api
+# Deploy on Ubuntu
+terraform apply -var="os_variant=ubuntu"
 
-# Full active scan
-./run-vapt.sh --full
+# Deploy on RHEL (Rocky Linux 9)
+terraform apply -var="os_variant=rhel"
 
-# See all options
-./run-vapt.sh --help
+# Full E2E test (Ubuntu + RHEL, auto-teardown)
+./scripts/test-e2e.sh
 ```
+
+See [`terraform/README.md`](terraform/README.md) for details.
 
 ---
 
-## E2E Testing
+## Security Scanning (VAPT)
 
-```bash
-# Start the full test environment (backend + 2 Ubuntu VMs)
-./e2e-test.sh
+Tantor includes built-in security scanning tools:
 
-# This will:
-# 1. Build and start containers
-# 2. Wait for health checks
-# 3. Provide instructions for manual testing
-```
-
----
-
-## Development
-
-### Backend
-
-```bash
-cd backend
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
-```
-
-### Frontend
-
-```bash
-cd frontend
-npm install
-npm run dev    # Starts on http://localhost:5173
-```
-
-### Production
-
-```bash
-# Using Docker Compose
-docker compose up -d
-
-# Access at http://localhost (Nginx) or configure Caddy
-```
+| Scanner | What It Scans | How to Run |
+|---------|---------------|------------|
+| **Built-in Security Scan** | Kafka ACLs, auth, configs, network | From the UI: Clusters → Security Scan |
+| **kafka-vapt** | 40+ Kafka-specific checks (nmap, kcat, openssl) | `cd kafka-vapt && ./run-kafka-vapt.sh --bootstrap broker:9092` |
+| **OWASP ZAP** | Web UI + API vulnerabilities | `cd vapt-scan && ./run-vapt.sh https://tantor-server` |
 
 ---
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|------------|
-| Frontend | React 19, TypeScript, Vite, Mantine UI |
+| Component | Technology |
+|-----------|------------|
+| Frontend | React 19, TypeScript, Vite, Tailwind CSS |
 | Backend | FastAPI, Python 3.12, SQLAlchemy, SQLite |
-| Orchestration | Ansible, Paramiko (SSH) |
-| Auth | JWT + bcrypt |
-| Reverse Proxy | Caddy or Nginx |
-| Kafka Scanning | nmap, openssl, kcat, Kafka CLI |
-| Infrastructure Scanning | OpenVAS (Greenbone CE), Qualys CE |
-| Web Scanning | OWASP ZAP |
-| Containers | Docker, Docker Compose |
+| Deployment | Ansible, Paramiko (SSH) |
+| Web Server | Nginx |
+| Auth | JWT + bcrypt, role-based (Admin / Monitor) |
+| Credential Storage | Fernet symmetric encryption |
 
 ---
 
-## VAPT Scanner Comparison
+## Troubleshooting
 
-Three scanner options for comprehensive security coverage:
+| Problem | Solution |
+|---------|----------|
+| Can't reach the UI | Check: `tantorctl status` — services may not be running. Run `tantorctl start`. |
+| Port 80 in use | Stop the conflicting service or change Nginx port in `/etc/nginx/sites-enabled/tantor.conf`. |
+| SSH connection fails to a host | Verify the host is reachable: `ssh -i key user@ip`. Check firewall allows port 22. |
+| Deployment stuck | Check logs: `tantorctl logs backend`. Common cause: Java not available on target node. |
+| "Permission denied" on Kafka nodes | Ensure the SSH user has passwordless sudo: `echo "user ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/tantor` |
+| Kafka binary not found | Upload it to `/var/lib/tantor/repo/kafka/` — see Air-Gapped section above. |
+| Forgot admin password | Run `tantorctl reset-password` to reset to `admin/admin`. |
+| Database backup | Run `tantorctl backup` — saves to `/var/lib/tantor/db/backups/`. |
 
-| Feature | kafka-vapt | OpenVAS | Qualys CE |
-|---------|-----------|---------|-----------|
-| **Type** | Kafka-specific | Infrastructure | Infrastructure |
-| **Cost** | Free | Free | Free (limited) |
-| **Open Source** | Yes | Yes (GPL) | No |
-| **API Automation** | CLI | GMP API | No (CE tier) |
-| **Kafka ACLs/SASL** | ✅ | ❌ | ❌ |
-| **ksqlDB checks** | ✅ | ❌ | ❌ |
-| **OS/Java CVEs** | ❌ | ✅ | ✅ |
-| **Log4Shell detect** | ❌ | ✅ | ✅ |
-| **SSL/TLS analysis** | ✅ | ✅ | ✅ |
-| **Port scanning** | ✅ | ✅ | ✅ |
+---
 
-### Run All Three Scanners
+## License
 
-```bash
-# 1. Kafka-specific security (ACLs, SASL, topics, ksqlDB)
-cd kafka-vapt && ./run-e2e-vapt.sh
-
-# 2. OpenVAS infrastructure scan (OS CVEs, Java CVEs, network vulns)
-cd openvas-vapt && ./run-e2e-openvas.sh
-
-# 3. Qualys CE (commercial-grade, manual via portal)
-cd qualys-vapt && ./run-e2e-qualys.sh
-```
+MIT
