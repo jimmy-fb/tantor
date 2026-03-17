@@ -1,0 +1,26 @@
+# ─── AWS Region ───
+aws_region = "us-east-1"
+
+# ─── OS Variant ───
+# "ubuntu" → Ubuntu 22.04 LTS
+# "rhel"   → Rocky Linux 9 (RHEL-compatible, no subscription required)
+os_variant = "ubuntu"
+
+# ─── Instance Types ───
+tantor_instance_type = "t3.large"   # Tantor server (needs RAM for npm build)
+kafka_instance_type  = "t3.medium"  # Kafka nodes
+
+# ─── Cluster Size ───
+kafka_node_count = 3
+kafka_version    = "3.7.0"
+
+# ─── Network ───
+vpc_cidr    = "10.0.0.0/16"
+subnet_cidr = "10.0.1.0/24"
+
+# ─── Naming ───
+name_prefix = "tantor-e2e"
+
+# ─── Repository ───
+github_repo  = "https://github.com/jimmy-fb/tantor.git"
+github_token = ""  # Leave empty for public repos
