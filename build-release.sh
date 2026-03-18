@@ -239,7 +239,7 @@ install_deps_debian() {
     export DEBIAN_FRONTEND=noninteractive
     apt-get update -qq
     apt-get install -y -qq \
-        python3 python3-pip python3-venv \
+        python3 python3-pip python3-venv python3-full \
         nginx \
         openssh-client sshpass \
         wget curl jq gnupg ca-certificates net-tools \
@@ -250,7 +250,7 @@ install_deps_debian() {
 install_deps_rhel() {
     dnf install -y -q epel-release 2>/dev/null || true
     dnf install -y -q \
-        python3 python3-pip \
+        python3 python3-pip python3-devel \
         nginx \
         openssh-clients sshpass \
         wget curl jq ca-certificates net-tools \
@@ -284,16 +284,20 @@ mkdir -p \
     "$TANTOR_LOG/backend" \
     "$TANTOR_LOG/nginx"
 
+# Grant tantor user passwordless sudo (needed for monitoring install via Prometheus/Grafana)
+echo "${TANTOR_USER} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/tantor
+chmod 440 /etc/sudoers.d/tantor
+
 echo -e "${GREEN}✓ User '${TANTOR_USER}' and directories created${NC}"
 
-# ─── Install Python Dependencies ───
+# ─── Install Python Dependencies (in venv — PEP 668 safe) ───
 echo -e "${BLUE}▶ Step 3/7: Installing Python dependencies...${NC}"
 
-pip3 install -q -r "$INSTALL_DIR/backend/requirements.txt" 2>/dev/null || \
-pip3 install -r "$INSTALL_DIR/backend/requirements.txt" --break-system-packages 2>/dev/null || \
-pip3 install -r "$INSTALL_DIR/backend/requirements.txt"
+python3 -m venv "$TANTOR_HOME/venv"
+"$TANTOR_HOME/venv/bin/pip" install --upgrade pip -q 2>/dev/null
+"$TANTOR_HOME/venv/bin/pip" install -q -r "$INSTALL_DIR/backend/requirements.txt"
 
-echo -e "${GREEN}✓ Python dependencies installed${NC}"
+echo -e "${GREEN}✓ Python venv created and dependencies installed${NC}"
 
 # ─── Copy Backend ───
 echo -e "${BLUE}▶ Step 4/7: Installing backend...${NC}"
@@ -305,6 +309,12 @@ cp "$INSTALL_DIR/backend/requirements.txt" "$TANTOR_HOME/backend/"
 ln -sf "$TANTOR_DATA/db/tantor.db" "$TANTOR_HOME/backend/tantor.db"
 ln -sf "$TANTOR_DATA/repo" "$TANTOR_HOME/backend/repo"
 ln -sf "$TANTOR_DATA/ansible_work" "$TANTOR_HOME/backend/ansible_work"
+
+# Create .env with CORS for all local addresses
+SERVER_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "localhost")
+cat > "$TANTOR_HOME/backend/.env" << ENVEOF
+CORS_ORIGINS=["http://localhost","http://127.0.0.1","http://${SERVER_IP}"]
+ENVEOF
 
 echo -e "${GREEN}✓ Backend installed${NC}"
 
@@ -327,8 +337,33 @@ else
     rm -f /etc/nginx/conf.d/default.conf
 fi
 
-# Systemd service
-cp "$INSTALL_DIR/systemd/tantor-backend.service" /etc/systemd/system/
+# Systemd service (using venv uvicorn)
+cat > /etc/systemd/system/tantor-backend.service << 'SYSEOF'
+[Unit]
+Description=Tantor Kafka Manager — Backend API
+After=network.target
+Wants=nginx.service
+
+[Service]
+Type=simple
+User=tantor
+Group=tantor
+WorkingDirectory=/opt/tantor/backend
+Environment=DATABASE_URL=sqlite:////var/lib/tantor/db/tantor.db
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/tantor/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 2
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/tantor/backend/stdout.log
+StandardError=append:/var/log/tantor/backend/stderr.log
+NoNewPrivileges=false
+ProtectSystem=false
+
+[Install]
+WantedBy=multi-user.target
+SYSEOF
+
 systemctl daemon-reload
 systemctl enable tantor-backend nginx >/dev/null 2>&1
 
@@ -336,6 +371,10 @@ systemctl enable tantor-backend nginx >/dev/null 2>&1
 cp "$INSTALL_DIR/bin/tantorctl" "$TANTOR_HOME/bin/tantorctl"
 chmod +x "$TANTOR_HOME/bin/tantorctl"
 ln -sf "$TANTOR_HOME/bin/tantorctl" /usr/local/bin/tantorctl
+
+# Symlink venv binaries so ansible-playbook is accessible
+ln -sf "$TANTOR_HOME/venv/bin/ansible-playbook" /usr/local/bin/ansible-playbook 2>/dev/null || true
+ln -sf "$TANTOR_HOME/venv/bin/ansible" /usr/local/bin/ansible 2>/dev/null || true
 
 echo -e "${GREEN}✓ Nginx, systemd, and tantorctl configured${NC}"
 
@@ -365,12 +404,10 @@ if [ "$HTTP" = "200" ]; then
     echo -e "${GREEN}✓ Tantor is running!${NC}"
 else
     echo ""
-    echo -e "${YELLOW}⚠ Tantor is still starting. Check: tantorctl logs${NC}"
+    echo -e "${YELLOW}⚠ Tantor is still starting. Check: tantorctl logs error${NC}"
 fi
 
 # ─── Done ───
-SERVER_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "localhost")
-
 echo ""
 echo -e "${CYAN}╔══════════════════════════════════════════════════════╗${NC}"
 echo -e "${CYAN}║           Installation Complete!                    ║${NC}"
@@ -399,8 +436,14 @@ echo -e "${GREEN}✓ Standalone installer created${NC}"
 
 # ─── Create the tarball ───
 echo -e "\n${BLUE}▶ Creating release tarball...${NC}"
+# Remove macOS resource forks and __pycache__
+find "$BUILD_DIR" -name '._*' -delete 2>/dev/null || true
+find "$BUILD_DIR" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
+find "$BUILD_DIR" -name '*.pyc' -delete 2>/dev/null || true
+
 cd /tmp
-tar czf "$OUTPUT" "$RELEASE_NAME"
+# Use COPYFILE_DISABLE to prevent macOS from adding ._ files
+COPYFILE_DISABLE=1 tar czf "$OUTPUT" "$RELEASE_NAME"
 rm -rf "$BUILD_DIR"
 
 # ─── Summary ───

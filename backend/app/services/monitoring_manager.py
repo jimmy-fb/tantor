@@ -43,8 +43,8 @@ def _is_systemd_available() -> bool:
 def _start_service(name: str, binary: str, args: list[str] | None = None, log_file: str | None = None):
     """Start a service — tries systemctl, falls back to direct background process."""
     if _is_systemd_available():
-        subprocess.run(f"systemctl enable {name}", shell=True, capture_output=True, timeout=30)
-        subprocess.run(f"systemctl start {name}", shell=True, capture_output=True, timeout=30)
+        subprocess.run(f"sudo systemctl enable {name}", shell=True, capture_output=True, timeout=30)
+        subprocess.run(f"sudo systemctl start {name}", shell=True, capture_output=True, timeout=30)
     else:
         # Kill any existing process
         _stop_service(name, binary)
@@ -63,7 +63,7 @@ def _start_service(name: str, binary: str, args: list[str] | None = None, log_fi
 def _stop_service(name: str, binary: str):
     """Stop a service — tries systemctl, falls back to killing process."""
     if _is_systemd_available():
-        subprocess.run(f"systemctl stop {name}", shell=True, capture_output=True, timeout=30)
+        subprocess.run(f"sudo systemctl stop {name}", shell=True, capture_output=True, timeout=30)
     else:
         # Kill existing background process
         if name in _bg_processes:
@@ -206,8 +206,8 @@ class MonitoringManager:
                 if os_family == "debian":
                     # ── Debian / Ubuntu — install from apt ──
                     cmds = [
-                        "apt-get update -qq",
-                        "apt-get install -y prometheus",
+                        "sudo apt-get update -qq",
+                        "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y prometheus",
                     ]
                     for cmd in cmds:
                         log(f"  $ {cmd}")
@@ -230,11 +230,11 @@ class MonitoringManager:
                     tarball_name = f"prometheus-{prom_version}.linux-{arch}.tar.gz"
                     local_tarball = Path(settings.MONITORING_REPO_DIR) / tarball_name
 
-                    cmds = ["mkdir -p /opt/prometheus /etc/prometheus /var/lib/prometheus"]
+                    cmds = ["sudo mkdir -p /opt/prometheus /etc/prometheus /var/lib/prometheus"]
                     if local_tarball.exists():
                         log(f"  Using local tarball: {tarball_name}")
                         cmds.append(
-                            f"tar xzf {local_tarball} -C /opt/prometheus --strip-components=1"
+                            f"sudo tar xzf {local_tarball} -C /opt/prometheus --strip-components=1"
                         )
                     else:
                         url = (
@@ -244,7 +244,7 @@ class MonitoringManager:
                         log(f"  Downloading Prometheus {prom_version} from GitHub...")
                         cmds.append(
                             f"cd /tmp && wget -q {url} && "
-                            f"tar xzf {tarball_name} -C /opt/prometheus --strip-components=1 && "
+                            f"sudo tar xzf {tarball_name} -C /opt/prometheus --strip-components=1 && "
                             f"rm -f {tarball_name}"
                         )
 
@@ -297,12 +297,12 @@ class MonitoringManager:
                 if os_family == "debian":
                     # ── Debian / Ubuntu — install from Grafana apt repo ──
                     cmds = [
-                        "apt-get install -y apt-transport-https",
-                        "mkdir -p /etc/apt/keyrings/",
-                        "wget -q -O - https://apt.grafana.com/gpg.key | gpg --batch --dearmor -o /etc/apt/keyrings/grafana.gpg",
-                        'echo "deb [signed-by=/etc/apt/keyrings/grafana.gpg] https://apt.grafana.com stable main" > /etc/apt/sources.list.d/grafana.list',
-                        "apt-get update",
-                        "apt-get install -y grafana",
+                        "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y apt-transport-https",
+                        "sudo mkdir -p /etc/apt/keyrings/",
+                        "wget -q -O - https://apt.grafana.com/gpg.key | sudo gpg --batch --dearmor -o /etc/apt/keyrings/grafana.gpg",
+                        'echo "deb [signed-by=/etc/apt/keyrings/grafana.gpg] https://apt.grafana.com stable main" | sudo tee /etc/apt/sources.list.d/grafana.list > /dev/null',
+                        "sudo apt-get update -qq",
+                        "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y grafana",
                     ]
                 elif os_family == "redhat":
                     # ── RHEL / CentOS / Rocky / Alma / Fedora — Grafana RPM repo ──
@@ -322,14 +322,14 @@ class MonitoringManager:
                     repo_path.write_text(grafana_repo)
                     log("  Added Grafana RPM repository")
                     cmds = [
-                        "dnf install -y grafana || yum install -y grafana",
+                        "sudo dnf install -y grafana || sudo yum install -y grafana",
                     ]
                 else:
                     # ── SUSE — Grafana via zypper ──
                     cmds = [
-                        "rpm --import https://rpm.grafana.com/gpg.key",
-                        "zypper addrepo -f https://rpm.grafana.com grafana 2>/dev/null || true",
-                        "zypper --no-gpg-checks install -y grafana",
+                        "sudo rpm --import https://rpm.grafana.com/gpg.key",
+                        "sudo zypper addrepo -f https://rpm.grafana.com grafana 2>/dev/null || true",
+                        "sudo zypper --no-gpg-checks install -y grafana",
                     ]
 
                 for cmd in cmds:
