@@ -17,7 +17,6 @@ import type {
   KsqlServerInfo, KsqlEntitiesResponse, KsqlQueryHistory,
   TokenResponse, UserResponse, UserCreate, UserUpdate,
   LogResponse,
-  MonitoringStatus, GrafanaDashboard, ExporterStatus,
 } from '../types';
 
 const api = axios.create({ baseURL: '/api' });
@@ -248,15 +247,7 @@ export const getServiceLogs = (clusterId: string, params: {
   since?: string; priority?: string; grep?: string;
 }) => api.get<LogResponse>(`/clusters/${clusterId}/logs`, { params }).then(r => r.data);
 
-// ── Monitoring ───────────────────────────────────────
-export const getMonitoringStatus = () => api.get<MonitoringStatus>('/monitoring/status').then(r => r.data);
-export const installMonitoring = () => api.post<{ task_id: string }>('/monitoring/install').then(r => r.data);
-export const getMonitoringInstallStatus = (taskId: string) =>
-  api.get<{ status: string; logs: string[] }>(`/monitoring/install/${taskId}`).then(r => r.data);
-export const deployExporters = (clusterId: string) =>
-  api.post<{ task_id: string }>(`/monitoring/clusters/${clusterId}/deploy-exporters`).then(r => r.data);
-export const getExportersStatus = (clusterId: string) =>
-  api.get<ExporterStatus[]>(`/monitoring/clusters/${clusterId}/exporters-status`).then(r => r.data);
-export const getDashboards = () => api.get<GrafanaDashboard[]>('/monitoring/dashboards').then(r => r.data);
-export const getDashboardUrl = (name: string) =>
-  api.get<{ url: string }>(`/monitoring/dashboards/${name}/url`).then(r => r.data);
+// ── Monitoring (built-in — no external tools) ────────
+export const getMonitoringStatus = () => api.get('/monitoring/status').then(r => r.data);
+export const getClusterMetrics = (clusterId: string) =>
+  api.get(`/monitoring/clusters/${clusterId}/metrics`).then(r => r.data);

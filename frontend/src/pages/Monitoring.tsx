@@ -1,95 +1,118 @@
-import { useState, useEffect } from 'react';
-import { BarChart3, Server, Activity, CheckCircle, XCircle, Download, RefreshCw } from 'lucide-react';
-import { getMonitoringStatus, installMonitoring, getMonitoringInstallStatus, getClusters, deployExporters } from '../lib/api';
-import type { MonitoringStatus, Cluster } from '../types';
+import { useState, useEffect, useCallback } from 'react';
+import { BarChart3, Cpu, HardDrive, Activity, RefreshCw, Server, Wifi, Database, Clock, MemoryStick } from 'lucide-react';
+import { getClusters, getClusterMetrics } from '../lib/api';
+import type { Cluster } from '../types';
+
+interface NodeMetrics {
+  host_id: string;
+  hostname: string;
+  ip_address: string;
+  role: string;
+  node_id: number;
+  status: string;
+  system: {
+    uptime?: string;
+    cpu_cores?: number;
+    cpu_usage_pct?: number;
+    load_1m?: number;
+    load_5m?: number;
+    load_15m?: number;
+    memory_total_mb?: number;
+    memory_used_mb?: number;
+    memory_available_mb?: number;
+    memory_usage_pct?: number;
+    error?: string;
+  };
+  kafka: {
+    status?: string;
+    pid?: number;
+    uptime?: string;
+    uptime_seconds?: number;
+    memory_rss_mb?: number;
+    data_size_mb?: number;
+    log_size_mb?: number;
+    topics?: number;
+    partitions?: number;
+    open_fds?: number;
+    connections?: number;
+    error?: string;
+  };
+  disk: {
+    root?: { total_mb: number; used_mb: number; available_mb: number; usage_pct: number };
+    data?: { total_mb: number; used_mb: number; available_mb: number; usage_pct: number };
+    error?: string;
+  };
+}
+
+interface ClusterMetrics {
+  cluster_id: string;
+  cluster_name: string;
+  nodes: NodeMetrics[];
+}
+
+function ProgressBar({ value, max = 100, color = 'blue' }: { value: number; max?: number; color?: string }) {
+  const pct = Math.min((value / max) * 100, 100);
+  const colorMap: Record<string, string> = {
+    blue: pct > 80 ? 'bg-red-500' : pct > 60 ? 'bg-yellow-500' : 'bg-blue-500',
+    green: pct > 80 ? 'bg-red-500' : pct > 60 ? 'bg-yellow-500' : 'bg-green-500',
+    purple: pct > 80 ? 'bg-red-500' : pct > 60 ? 'bg-yellow-500' : 'bg-purple-500',
+  };
+  return (
+    <div className="w-full bg-gray-200 rounded-full h-2.5">
+      <div className={`${colorMap[color] || colorMap.blue} h-2.5 rounded-full transition-all duration-500`} style={{ width: `${pct}%` }} />
+    </div>
+  );
+}
+
+function MetricCard({ icon: Icon, label, value, sub }: { icon: typeof Cpu; label: string; value: string | number; sub?: string }) {
+  return (
+    <div className="bg-gray-50 border border-gray-100 rounded-lg p-3">
+      <div className="flex items-center gap-1.5 mb-1">
+        <Icon size={13} className="text-gray-400" />
+        <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">{label}</span>
+      </div>
+      <p className="text-lg font-bold text-gray-800">{value}</p>
+      {sub && <p className="text-[11px] text-gray-400 mt-0.5">{sub}</p>}
+    </div>
+  );
+}
 
 export default function Monitoring() {
-  const [status, setStatus] = useState<MonitoringStatus | null>(null);
   const [clusters, setClusters] = useState<Cluster[]>([]);
+  const [selectedCluster, setSelectedCluster] = useState<string>('');
+  const [metrics, setMetrics] = useState<ClusterMetrics | null>(null);
   const [loading, setLoading] = useState(true);
-  const [installing, setInstalling] = useState(false);
-  const [installTaskId, setInstallTaskId] = useState<string | null>(null);
-  const [installLogs, setInstallLogs] = useState<string[]>([]);
-  const [deployingCluster, setDeployingCluster] = useState<string | null>(null);
-  const [error, setError] = useState('');
-
-  const fetchStatus = async () => {
-    try {
-      const data = await getMonitoringStatus();
-      setStatus(data);
-    } catch {
-      // Monitoring not set up yet
-      setStatus({
-        prometheus_installed: false,
-        grafana_installed: false,
-        prometheus_running: false,
-        grafana_running: false,
-        prometheus_port: 9090,
-        grafana_port: 3000,
-        grafana_url: null,
-        prometheus_url: null,
-      });
-    }
-  };
-
-  const fetchClusters = async () => {
-    try {
-      const data = await getClusters();
-      setClusters(data.filter(c => c.state === 'running'));
-    } catch {
-      // ignore
-    }
-  };
+  const [refreshing, setRefreshing] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(false);
 
   useEffect(() => {
-    Promise.all([fetchStatus(), fetchClusters()]).finally(() => setLoading(false));
+    getClusters().then((data: Cluster[]) => {
+      const running = data.filter((c: Cluster) => c.state === 'running');
+      setClusters(running);
+      if (running.length > 0) setSelectedCluster(running[0].id);
+    }).finally(() => setLoading(false));
   }, []);
 
-  // Poll for install progress
+  const fetchMetrics = useCallback(async (silent = false) => {
+    if (!selectedCluster) return;
+    if (!silent) setRefreshing(true);
+    try {
+      const data = await getClusterMetrics(selectedCluster);
+      setMetrics(data);
+    } catch { /* ignore */ }
+    if (!silent) setRefreshing(false);
+  }, [selectedCluster]);
+
   useEffect(() => {
-    if (!installTaskId) return;
-    const interval = setInterval(async () => {
-      try {
-        const task = await getMonitoringInstallStatus(installTaskId);
-        setInstallLogs(task.logs);
-        if (task.status !== 'running') {
-          clearInterval(interval);
-          setInstalling(false);
-          setInstallTaskId(null);
-          fetchStatus();
-        }
-      } catch {
-        clearInterval(interval);
-        setInstalling(false);
-      }
-    }, 2000);
+    if (selectedCluster) fetchMetrics();
+  }, [selectedCluster, fetchMetrics]);
+
+  // Auto-refresh every 30s
+  useEffect(() => {
+    if (!autoRefresh || !selectedCluster) return;
+    const interval = setInterval(() => fetchMetrics(true), 30000);
     return () => clearInterval(interval);
-  }, [installTaskId]);
-
-  const handleInstall = async () => {
-    setInstalling(true);
-    setError('');
-    setInstallLogs([]);
-    try {
-      const result = await installMonitoring();
-      setInstallTaskId(result.task_id);
-    } catch (err: unknown) {
-      setError((err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'Installation failed');
-      setInstalling(false);
-    }
-  };
-
-  const handleDeployExporters = async (clusterId: string) => {
-    setDeployingCluster(clusterId);
-    try {
-      await deployExporters(clusterId);
-      // TODO: poll for deploy completion
-    } catch (err: unknown) {
-      setError((err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'Exporter deployment failed');
-    } finally {
-      setDeployingCluster(null);
-    }
-  };
+  }, [autoRefresh, selectedCluster, fetchMetrics]);
 
   if (loading) {
     return (
@@ -99,191 +122,141 @@ export default function Monitoring() {
     );
   }
 
+  if (clusters.length === 0) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+          <BarChart3 size={24} /> Monitoring
+        </h1>
+        <div className="bg-gray-50 border border-gray-200 rounded-xl p-12 text-center">
+          <Server size={40} className="mx-auto text-gray-300 mb-4" />
+          <h3 className="text-lg font-semibold text-gray-600">No Running Clusters</h3>
+          <p className="text-gray-400 mt-2">Deploy a Kafka cluster first, then monitoring metrics will appear here automatically.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <BarChart3 size={24} />
-            Monitoring
+            <BarChart3 size={24} /> Monitoring
           </h1>
-          <p className="text-gray-500 mt-1">Prometheus & Grafana cluster monitoring</p>
+          <p className="text-gray-500 mt-1">Live Kafka & system metrics</p>
         </div>
-        <button
-          onClick={() => { fetchStatus(); fetchClusters(); }}
-          className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-        >
-          <RefreshCw size={16} />
-          Refresh
-        </button>
-      </div>
-
-      {error && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-          {error}
-        </div>
-      )}
-
-      {/* Infrastructure Status */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-              <Activity size={18} className="text-orange-500" />
-              Prometheus
-            </h3>
-            {status?.prometheus_installed ? (
-              <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${
-                status.prometheus_running ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-              }`}>
-                {status.prometheus_running ? <CheckCircle size={12} /> : <XCircle size={12} />}
-                {status.prometheus_running ? 'Running' : 'Stopped'}
-              </span>
-            ) : (
-              <span className="text-xs text-gray-400">Not installed</span>
-            )}
-          </div>
-          {status?.prometheus_installed ? (
-            <p className="text-sm text-gray-500">Port: {status.prometheus_port}</p>
-          ) : (
-            <p className="text-sm text-gray-400">Install Prometheus to enable metrics collection</p>
+        <div className="flex items-center gap-3">
+          {clusters.length > 1 && (
+            <select
+              value={selectedCluster}
+              onChange={e => setSelectedCluster(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+            >
+              {clusters.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
           )}
-        </div>
-
-        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-              <BarChart3 size={18} className="text-green-500" />
-              Grafana
-            </h3>
-            {status?.grafana_installed ? (
-              <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${
-                status.grafana_running ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-              }`}>
-                {status.grafana_running ? <CheckCircle size={12} /> : <XCircle size={12} />}
-                {status.grafana_running ? 'Running' : 'Stopped'}
-              </span>
-            ) : (
-              <span className="text-xs text-gray-400">Not installed</span>
-            )}
-          </div>
-          {status?.grafana_installed ? (
-            <p className="text-sm text-gray-500">Port: {status.grafana_port}</p>
-          ) : (
-            <p className="text-sm text-gray-400">Install Grafana to enable dashboards</p>
-          )}
-        </div>
-      </div>
-
-      {/* Install Button */}
-      {(!status?.prometheus_installed || !status?.grafana_installed) && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
-          <h3 className="font-semibold text-blue-900 mb-2">Setup Monitoring Infrastructure</h3>
-          <p className="text-sm text-blue-700 mb-4">
-            Install Prometheus and Grafana on this server to enable cluster monitoring.
-            Node exporters and JMX exporters will be deployed to cluster hosts.
-          </p>
+          <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={autoRefresh}
+              onChange={e => setAutoRefresh(e.target.checked)}
+              className="rounded border-gray-300"
+            />
+            Auto (30s)
+          </label>
           <button
-            onClick={handleInstall}
-            disabled={installing}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg font-medium transition-colors"
+            onClick={() => fetchMetrics()}
+            disabled={refreshing}
+            className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
           >
-            {installing ? (
-              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <Download size={16} />
-            )}
-            {installing ? 'Installing...' : 'Install Prometheus & Grafana'}
+            <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+            Refresh
           </button>
         </div>
-      )}
+      </div>
 
-      {/* Install Logs */}
-      {installLogs.length > 0 && (
-        <div className="bg-gray-900 rounded-xl p-4 max-h-64 overflow-y-auto">
-          <pre className="text-xs text-gray-300 font-mono whitespace-pre-wrap">
-            {installLogs.join('\n')}
-          </pre>
-        </div>
-      )}
-
-      {/* Cluster Exporters */}
-      {status?.prometheus_installed && clusters.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-          <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <Server size={18} />
-            Cluster Exporters
-          </h3>
-          <p className="text-sm text-gray-500 mb-4">
-            Deploy node_exporter and JMX exporter to cluster hosts for metrics collection.
-          </p>
-          <div className="space-y-3">
-            {clusters.map(cluster => (
-              <div key={cluster.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="font-medium text-gray-900">{cluster.name}</p>
-                  <p className="text-xs text-gray-500">Kafka {cluster.kafka_version} • {cluster.mode}</p>
-                </div>
-                <button
-                  onClick={() => handleDeployExporters(cluster.id)}
-                  disabled={deployingCluster === cluster.id}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white rounded-lg text-sm font-medium transition-colors"
-                >
-                  {deployingCluster === cluster.id ? (
-                    <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    <Download size={14} />
-                  )}
-                  Deploy Exporters
-                </button>
+      {/* Nodes */}
+      {metrics?.nodes.map(node => (
+        <div key={node.host_id} className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+          {/* Node Header */}
+          <div className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Server size={20} className="text-gray-500" />
+              <div>
+                <h3 className="font-semibold text-gray-900">{node.hostname}</h3>
+                <p className="text-xs text-gray-500">{node.ip_address} · {node.role} · Node {node.node_id}</p>
               </div>
-            ))}
+            </div>
+            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${
+              node.kafka.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+            }`}>
+              <span className={`w-2 h-2 rounded-full ${node.kafka.status === 'active' ? 'bg-green-500' : 'bg-red-500'}`} />
+              Kafka {node.kafka.status === 'active' ? 'Running' : node.kafka.status || 'Unknown'}
+            </span>
           </div>
-        </div>
-      )}
 
-      {/* Grafana Dashboards */}
-      {status?.grafana_installed && status?.grafana_running && (
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-          <div className="p-4 border-b border-gray-200">
-            <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-              <BarChart3 size={18} />
-              Grafana Dashboards
-            </h3>
-          </div>
-          <div className="p-4">
-            {(() => {
-              const grafanaBase = status.grafana_url || `http://localhost:${status.grafana_port}`;
-              return (
-                <>
-                  <p className="text-sm text-gray-500 mb-4">
-                    Access Grafana at{' '}
-                    <a href={grafanaBase} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                      {grafanaBase}
-                    </a>
+          <div className="p-6 space-y-6">
+            {/* Kafka Metrics */}
+            <div>
+              <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                <Activity size={14} /> Kafka Broker
+              </h4>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                <MetricCard icon={Clock} label="Uptime" value={node.kafka.uptime || '-'} />
+                <MetricCard icon={MemoryStick} label="Memory (RSS)" value={`${node.kafka.memory_rss_mb || 0} MB`} />
+                <MetricCard icon={Database} label="Data Size" value={`${node.kafka.data_size_mb || 0} MB`} />
+                <MetricCard icon={BarChart3} label="Topics" value={node.kafka.topics ?? 0} />
+                <MetricCard icon={HardDrive} label="Partitions" value={node.kafka.partitions ?? 0} />
+                <MetricCard icon={Wifi} label="Connections" value={node.kafka.connections ?? 0} />
+              </div>
+            </div>
+
+            {/* System Metrics */}
+            <div>
+              <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                <Cpu size={14} /> System Resources
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {/* CPU */}
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">CPU ({node.system.cpu_cores || 0} cores)</span>
+                    <span className="font-medium">{node.system.cpu_usage_pct ?? 0}%</span>
+                  </div>
+                  <ProgressBar value={node.system.cpu_usage_pct ?? 0} color="blue" />
+                  <p className="text-xs text-gray-400">Load: {node.system.load_1m ?? 0} / {node.system.load_5m ?? 0} / {node.system.load_15m ?? 0}</p>
+                </div>
+
+                {/* Memory */}
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Memory</span>
+                    <span className="font-medium">{node.system.memory_used_mb ?? 0} / {node.system.memory_total_mb ?? 0} MB</span>
+                  </div>
+                  <ProgressBar value={node.system.memory_usage_pct ?? 0} color="green" />
+                  <p className="text-xs text-gray-400">{node.system.memory_available_mb ?? 0} MB available</p>
+                </div>
+
+                {/* Disk */}
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Disk (data)</span>
+                    <span className="font-medium">{node.disk.data?.usage_pct ?? node.disk.root?.usage_pct ?? 0}%</span>
+                  </div>
+                  <ProgressBar value={node.disk.data?.usage_pct ?? node.disk.root?.usage_pct ?? 0} color="purple" />
+                  <p className="text-xs text-gray-400">
+                    {((node.disk.data?.available_mb ?? node.disk.root?.available_mb ?? 0) / 1024).toFixed(1)} GB free
                   </p>
-                  <iframe
-                    src={`${grafanaBase}/d/kafka-overview?orgId=1&kiosk`}
-                    className="w-full h-[600px] border border-gray-200 rounded-lg"
-                    title="Grafana Dashboard"
-                  />
-                </>
-              );
-            })()}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      )}
-
-      {/* Empty state */}
-      {status?.prometheus_installed && status?.grafana_installed && clusters.length === 0 && (
-        <div className="bg-gray-50 border border-gray-200 rounded-xl p-8 text-center">
-          <Server size={32} className="mx-auto text-gray-400 mb-3" />
-          <h3 className="font-semibold text-gray-700">No Running Clusters</h3>
-          <p className="text-sm text-gray-500 mt-1">
-            Deploy a cluster first, then come back to set up monitoring exporters.
-          </p>
-        </div>
-      )}
+      ))}
     </div>
   );
 }

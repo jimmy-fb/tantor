@@ -1,85 +1,253 @@
-"""Monitoring API — Prometheus + Grafana installation and exporter deployment."""
+"""Monitoring API — Built-in Kafka & system metrics via SSH (no external tools required)."""
 
-import uuid
-
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+import logging
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.models.cluster import Cluster
+from app.models.host import Host
+from app.models.service import Service
 from app.models.user import User
-from app.services.monitoring_manager import (
-    monitoring_manager, get_monitoring_task, init_monitoring_task,
-)
-from app.api.deps import require_admin, require_monitor_or_above
+from app.services.ssh_manager import SSHManager
+from app.api.deps import require_monitor_or_above
 
+logger = logging.getLogger("tantor.monitoring")
 router = APIRouter(prefix="/api/monitoring", tags=["monitoring"])
 
 
+def _ssh_exec(host: Host, command: str, timeout: int = 15) -> str:
+    """Execute command on host and return stdout."""
+    try:
+        with SSHManager.connect(
+            host.ip_address, host.ssh_port, host.username,
+            host.auth_type, host.encrypted_credential,
+        ) as client:
+            exit_code, stdout, stderr = SSHManager.exec_command(client, command, timeout=timeout)
+            return stdout.strip() if exit_code == 0 else ""
+    except Exception as e:
+        logger.warning(f"SSH to {host.ip_address} failed: {e}")
+        return ""
+
+
 @router.get("/status")
-def get_status(db: Session = Depends(get_db), _: User = Depends(require_monitor_or_above)):
-    """Get Prometheus/Grafana installation and running status."""
-    return monitoring_manager.get_monitoring_status(db)
+def get_monitoring_status(_: User = Depends(require_monitor_or_above)):
+    """Return monitoring status — built-in, always available."""
+    return {
+        "enabled": True,
+        "type": "built-in",
+        "description": "Built-in Kafka & system metrics via SSH. No external tools required.",
+    }
 
 
-@router.post("/install")
-def install_monitoring(
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
-):
-    """Install Prometheus + Grafana on the Tantor server. Runs in background."""
-    task_id = str(uuid.uuid4())
-    init_monitoring_task(task_id)
-    background_tasks.add_task(monitoring_manager.install_prometheus_grafana, task_id, db)
-    return {"task_id": task_id, "status": "running"}
-
-
-@router.get("/install/{task_id}")
-def get_install_status(task_id: str, _: User = Depends(require_monitor_or_above)):
-    """Get monitoring installation task status."""
-    task = get_monitoring_task(task_id)
-    if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
-    return task
-
-
-@router.post("/clusters/{cluster_id}/deploy-exporters")
-def deploy_exporters(
-    cluster_id: str,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
-    _: User = Depends(require_admin),
-):
-    """Deploy node_exporter + JMX exporter to cluster hosts. Runs in background."""
-    task_id = str(uuid.uuid4())
-    init_monitoring_task(task_id)
-    background_tasks.add_task(
-        monitoring_manager.deploy_exporters_to_cluster, cluster_id, task_id, db,
-    )
-    return {"task_id": task_id, "status": "running"}
-
-
-@router.get("/clusters/{cluster_id}/exporters-status")
-def get_exporters_status(
+@router.get("/clusters/{cluster_id}/metrics")
+def get_cluster_metrics(
     cluster_id: str,
     db: Session = Depends(get_db),
     _: User = Depends(require_monitor_or_above),
 ):
-    """Check exporter status on all hosts in a cluster."""
-    return monitoring_manager.get_exporters_status(cluster_id, db)
+    """Get live metrics for all nodes in a cluster."""
+    cluster = db.query(Cluster).filter(Cluster.id == cluster_id).first()
+    if not cluster:
+        raise HTTPException(status_code=404, detail="Cluster not found")
+
+    services = db.query(Service).filter(Service.cluster_id == cluster_id).all()
+    nodes = []
+
+    for svc in services:
+        host = db.query(Host).filter(Host.id == svc.host_id).first()
+        if not host:
+            continue
+
+        node_metrics = {
+            "host_id": host.id,
+            "hostname": host.hostname,
+            "ip_address": host.ip_address,
+            "role": svc.role,
+            "node_id": svc.node_id,
+            "status": svc.status,
+            "system": _get_system_metrics(host),
+            "kafka": _get_kafka_metrics(host),
+            "disk": _get_disk_metrics(host),
+        }
+        nodes.append(node_metrics)
+
+    return {
+        "cluster_id": cluster_id,
+        "cluster_name": cluster.name,
+        "nodes": nodes,
+    }
 
 
-@router.get("/dashboards")
-def list_dashboards(_: User = Depends(require_monitor_or_above)):
-    """List available Grafana dashboards."""
-    return monitoring_manager.get_dashboards()
+def _get_system_metrics(host: Host) -> dict:
+    """Get CPU, memory, uptime from a host."""
+    # All in one SSH call for performance
+    cmd = """bash -c '
+echo "UPTIME:$(uptime -s 2>/dev/null || uptime | head -1)"
+echo "LOAD:$(cat /proc/loadavg 2>/dev/null || echo "0 0 0")"
+echo "CPU_CORES:$(nproc 2>/dev/null || echo 1)"
+
+# Memory
+MEM=$(free -m 2>/dev/null | grep Mem:)
+TOTAL=$(echo $MEM | awk "{print \\$2}")
+USED=$(echo $MEM | awk "{print \\$3}")
+AVAIL=$(echo $MEM | awk "{print \\$7}")
+echo "MEM_TOTAL_MB:$TOTAL"
+echo "MEM_USED_MB:$USED"
+echo "MEM_AVAIL_MB:$AVAIL"
+
+# CPU usage (1-second sample)
+CPU_IDLE=$(top -bn1 2>/dev/null | grep "Cpu(s)" | awk "{print \\$8}" | tr -d "%id," || echo "0")
+echo "CPU_IDLE:$CPU_IDLE"
+'"""
+    output = _ssh_exec(host, cmd, timeout=15)
+    if not output:
+        return {"error": "unreachable"}
+
+    metrics = {}
+    for line in output.splitlines():
+        if ":" in line:
+            key, val = line.split(":", 1)
+            metrics[key.strip()] = val.strip()
+
+    try:
+        load_parts = metrics.get("LOAD", "0 0 0").split()
+        cpu_cores = int(metrics.get("CPU_CORES", "1"))
+        mem_total = int(metrics.get("MEM_TOTAL_MB", "0"))
+        mem_used = int(metrics.get("MEM_USED_MB", "0"))
+        mem_avail = int(metrics.get("MEM_AVAIL_MB", "0"))
+        cpu_idle = float(metrics.get("CPU_IDLE", "0"))
+
+        return {
+            "uptime": metrics.get("UPTIME", "unknown"),
+            "cpu_cores": cpu_cores,
+            "load_1m": float(load_parts[0]) if load_parts else 0,
+            "load_5m": float(load_parts[1]) if len(load_parts) > 1 else 0,
+            "load_15m": float(load_parts[2]) if len(load_parts) > 2 else 0,
+            "cpu_usage_pct": round(100.0 - cpu_idle, 1),
+            "memory_total_mb": mem_total,
+            "memory_used_mb": mem_used,
+            "memory_available_mb": mem_avail,
+            "memory_usage_pct": round((mem_used / mem_total * 100), 1) if mem_total > 0 else 0,
+        }
+    except Exception as e:
+        return {"error": str(e)}
 
 
-@router.get("/dashboards/{name}/url")
-def get_dashboard_url(name: str, _: User = Depends(require_monitor_or_above)):
-    """Get iframe URL for a specific dashboard."""
-    dashboards = monitoring_manager.get_dashboards()
-    for d in dashboards:
-        if d["name"] == name:
-            return {"url": d["url"]}
-    raise HTTPException(status_code=404, detail="Dashboard not found")
+def _get_kafka_metrics(host: Host) -> dict:
+    """Get Kafka broker metrics — service status, log size, topic count."""
+    cmd = """bash -c '
+# Service status
+ACTIVE=$(systemctl is-active kafka 2>/dev/null || echo "unknown")
+echo "KAFKA_STATUS:$ACTIVE"
+
+# PID and uptime
+PID=$(systemctl show kafka -p MainPID --value 2>/dev/null || echo 0)
+echo "KAFKA_PID:$PID"
+if [ "$PID" != "0" ] && [ -d "/proc/$PID" ]; then
+    START=$(stat -c %Y /proc/$PID 2>/dev/null || echo 0)
+    NOW=$(date +%s)
+    UPTIME_SECS=$((NOW - START))
+    echo "KAFKA_UPTIME_SECS:$UPTIME_SECS"
+
+    # JVM memory from /proc
+    RSS=$(awk "/^VmRSS/{print \\$2}" /proc/$PID/status 2>/dev/null || echo 0)
+    echo "KAFKA_RSS_KB:$RSS"
+else
+    echo "KAFKA_UPTIME_SECS:0"
+    echo "KAFKA_RSS_KB:0"
+fi
+
+# Data directory size
+DATA_SIZE=$(du -sm /var/lib/kafka/data 2>/dev/null | awk "{print \\$1}" || echo 0)
+echo "KAFKA_DATA_MB:$DATA_SIZE"
+
+# Log directory size
+LOG_SIZE=$(du -sm /opt/kafka/logs 2>/dev/null | awk "{print \\$1}" || echo 0)
+echo "KAFKA_LOG_MB:$LOG_SIZE"
+
+# Topic count (from data directory)
+TOPICS=$(ls -d /var/lib/kafka/data/*-* 2>/dev/null | sed "s/-[0-9]*$//" | sort -u | wc -l || echo 0)
+echo "KAFKA_TOPICS:$TOPICS"
+
+# Partition count
+PARTITIONS=$(ls -d /var/lib/kafka/data/*-* 2>/dev/null | wc -l || echo 0)
+echo "KAFKA_PARTITIONS:$PARTITIONS"
+
+# Open file descriptors
+if [ "$PID" != "0" ] && [ -d "/proc/$PID/fd" ]; then
+    FDS=$(ls /proc/$PID/fd 2>/dev/null | wc -l || echo 0)
+    echo "KAFKA_FDS:$FDS"
+else
+    echo "KAFKA_FDS:0"
+fi
+
+# Network connections on 9092
+CONNECTIONS=$(ss -tn 2>/dev/null | grep -c ":9092" || echo 0)
+echo "KAFKA_CONNECTIONS:$CONNECTIONS"
+'"""
+    output = _ssh_exec(host, cmd, timeout=15)
+    if not output:
+        return {"error": "unreachable"}
+
+    metrics = {}
+    for line in output.splitlines():
+        if ":" in line:
+            key, val = line.split(":", 1)
+            metrics[key.strip()] = val.strip()
+
+    try:
+        uptime_secs = int(metrics.get("KAFKA_UPTIME_SECS", "0"))
+        hours = uptime_secs // 3600
+        minutes = (uptime_secs % 3600) // 60
+
+        return {
+            "status": metrics.get("KAFKA_STATUS", "unknown"),
+            "pid": int(metrics.get("KAFKA_PID", "0")),
+            "uptime": f"{hours}h {minutes}m" if uptime_secs > 0 else "not running",
+            "uptime_seconds": uptime_secs,
+            "memory_rss_mb": round(int(metrics.get("KAFKA_RSS_KB", "0")) / 1024, 1),
+            "data_size_mb": int(metrics.get("KAFKA_DATA_MB", "0")),
+            "log_size_mb": int(metrics.get("KAFKA_LOG_MB", "0")),
+            "topics": int(metrics.get("KAFKA_TOPICS", "0")),
+            "partitions": int(metrics.get("KAFKA_PARTITIONS", "0")),
+            "open_fds": int(metrics.get("KAFKA_FDS", "0")),
+            "connections": int(metrics.get("KAFKA_CONNECTIONS", "0")),
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def _get_disk_metrics(host: Host) -> dict:
+    """Get disk usage for Kafka data and root partitions."""
+    cmd = """bash -c '
+df -m / 2>/dev/null | tail -1 | awk "{print \\"ROOT_TOTAL_MB:\\"\\$2\\"\\nROOT_USED_MB:\\"\\$3\\"\\nROOT_AVAIL_MB:\\"\\$4\\"\\nROOT_USE_PCT:\\"\\$5}"
+df -m /var/lib/kafka/data 2>/dev/null | tail -1 | awk "{print \\"DATA_TOTAL_MB:\\"\\$2\\"\\nDATA_USED_MB:\\"\\$3\\"\\nDATA_AVAIL_MB:\\"\\$4\\"\\nDATA_USE_PCT:\\"\\$5}"
+'"""
+    output = _ssh_exec(host, cmd, timeout=10)
+    if not output:
+        return {"error": "unreachable"}
+
+    metrics = {}
+    for line in output.splitlines():
+        if ":" in line:
+            key, val = line.split(":", 1)
+            metrics[key.strip()] = val.strip().rstrip("%")
+
+    try:
+        return {
+            "root": {
+                "total_mb": int(metrics.get("ROOT_TOTAL_MB", "0")),
+                "used_mb": int(metrics.get("ROOT_USED_MB", "0")),
+                "available_mb": int(metrics.get("ROOT_AVAIL_MB", "0")),
+                "usage_pct": int(metrics.get("ROOT_USE_PCT", "0")),
+            },
+            "data": {
+                "total_mb": int(metrics.get("DATA_TOTAL_MB", "0")),
+                "used_mb": int(metrics.get("DATA_USED_MB", "0")),
+                "available_mb": int(metrics.get("DATA_AVAIL_MB", "0")),
+                "usage_pct": int(metrics.get("DATA_USE_PCT", "0")),
+            },
+        }
+    except Exception as e:
+        return {"error": str(e)}
