@@ -186,7 +186,7 @@ echo -e "${GREEN}✓ ZAP image ready${NC}"
 
 # ─── Check Target Reachability ───
 echo -e "\n${BLUE}▶ Checking target reachability...${NC}"
-HTTP_CODE=$(curl -sf -o /dev/null -w "%{http_code}" --max-time 10 "$TARGET_URL" 2>/dev/null || echo "000")
+HTTP_CODE=$(curl -skf -o /dev/null -w "%{http_code}" --max-time 10 "$TARGET_URL" 2>/dev/null || echo "000")
 if [ "$HTTP_CODE" = "000" ]; then
     echo -e "${RED}✗ Cannot reach $TARGET_URL${NC}"
     echo -e "  Make sure the target is running and accessible."
@@ -241,9 +241,9 @@ run_scan() {
     local DURATION=$(( END_TIME - START_TIME ))
 
     # Parse results
-    local PASS=$(echo "$OUTPUT" | grep -oP 'PASS: \K\d+' | tail -1)
-    local WARN=$(echo "$OUTPUT" | grep -oP 'WARN-NEW: \K\d+' | tail -1)
-    local FAIL=$(echo "$OUTPUT" | grep -oP 'FAIL-NEW: \K\d+' | tail -1)
+    local PASS=$(echo "$OUTPUT" | grep -o 'PASS: [0-9]*' | tail -1 | sed 's/PASS: //')
+    local WARN=$(echo "$OUTPUT" | grep -o 'WARN-NEW: [0-9]*' | tail -1 | sed 's/WARN-NEW: //')
+    local FAIL=$(echo "$OUTPUT" | grep -o 'FAIL-NEW: [0-9]*' | tail -1 | sed 's/FAIL-NEW: //')
 
     PASS=${PASS:-0}
     WARN=${WARN:-0}
