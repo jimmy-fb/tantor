@@ -13,6 +13,10 @@ class KafkaVersionInfo(BaseModel):
     upgrade_notes: str | None = None
 
 
+class KafkaDownloadRequest(BaseModel):
+    version: str
+
+
 class ConnectPlugin(BaseModel):
     name: str
     filename: str

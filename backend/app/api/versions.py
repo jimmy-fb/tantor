@@ -1,11 +1,13 @@
 import json
+import logging
 import re
+import urllib.request
 from pathlib import Path
 
-from fastapi import Depends, APIRouter, HTTPException, UploadFile, File
+from fastapi import Depends, APIRouter, BackgroundTasks, HTTPException, UploadFile, File
 
 from app.config import settings
-from app.schemas.version import KafkaVersionInfo, ConnectPlugin
+from app.schemas.version import KafkaVersionInfo, KafkaDownloadRequest, ConnectPlugin
 from app.api.deps import require_admin, require_monitor_or_above
 from app.models.user import User
 

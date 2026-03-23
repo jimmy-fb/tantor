@@ -1,100 +1,5 @@
 #!/usr/bin/env bash
 ###############################################################################
-#  build-release.sh — Package Tantor into a single distributable tarball
-#
-#  Output: tantor-<version>-linux.tar.gz
-#
-#  The tarball contains everything pre-built:
-#    - Backend (Python source + requirements.txt)
-#    - Frontend (pre-built dist/)
-#    - Installer (install.sh + configs + systemd + CLI)
-#
-#  End user just does:
-#    tar xzf tantor-1.0.0-linux.tar.gz
-#    cd tantor-1.0.0
-#    sudo ./install.sh
-#
-###############################################################################
-
-set -euo pipefail
-
-VERSION="1.0.0"
-RELEASE_NAME="tantor-${VERSION}"
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-BUILD_DIR="/tmp/${RELEASE_NAME}"
-OUTPUT="${SCRIPT_DIR}/${RELEASE_NAME}-linux.tar.gz"
-
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-NC='\033[0m'
-
-echo -e "${CYAN}"
-echo "  ╔════════════════════════════════════════╗"
-echo "  ║   Tantor Release Builder v${VERSION}      ║"
-echo "  ╚════════════════════════════════════════╝"
-echo -e "${NC}"
-
-# ─── Clean ───
-rm -rf "$BUILD_DIR"
-mkdir -p "$BUILD_DIR"
-
-# ─── Step 1: Build Frontend ───
-echo -e "${BLUE}▶ Step 1/5: Building frontend...${NC}"
-cd "$SCRIPT_DIR/frontend"
-npm ci --prefer-offline 2>/dev/null || npm install
-npm run build
-echo -e "${GREEN}✓ Frontend built${NC}"
-
-# ─── Step 2: Copy Backend ───
-echo -e "${BLUE}▶ Step 2/5: Packaging backend...${NC}"
-mkdir -p "$BUILD_DIR/backend"
-cp -r "$SCRIPT_DIR/backend/app" "$BUILD_DIR/backend/"
-cp "$SCRIPT_DIR/backend/requirements.txt" "$BUILD_DIR/backend/"
-echo -e "${GREEN}✓ Backend packaged${NC}"
-
-# ─── Step 3: Copy Frontend Dist ───
-echo -e "${BLUE}▶ Step 3/5: Packaging frontend...${NC}"
-mkdir -p "$BUILD_DIR/frontend/dist"
-cp -r "$SCRIPT_DIR/frontend/dist/"* "$BUILD_DIR/frontend/dist/"
-echo -e "${GREEN}✓ Frontend packaged (pre-built)${NC}"
-
-# ─── Step 4: Copy Installer Configs ───
-echo -e "${BLUE}▶ Step 4/5: Packaging installer...${NC}"
-mkdir -p "$BUILD_DIR/config"
-mkdir -p "$BUILD_DIR/systemd"
-mkdir -p "$BUILD_DIR/bin"
-
-cp "$SCRIPT_DIR/installer/config/nginx-tantor.conf" "$BUILD_DIR/config/"
-cp "$SCRIPT_DIR/installer/systemd/tantor-backend.service" "$BUILD_DIR/systemd/"
-cp "$SCRIPT_DIR/installer/scripts/tantorctl.sh" "$BUILD_DIR/bin/tantorctl"
-chmod +x "$BUILD_DIR/bin/tantorctl"
-
-# Copy supervisor config if exists (for Docker mode)
-[ -f "$SCRIPT_DIR/installer/config/supervisord.conf" ] && \
-  cp "$SCRIPT_DIR/installer/config/supervisord.conf" "$BUILD_DIR/config/"
-
-echo -e "${GREEN}✓ Installer configs packaged${NC}"
-
-# ─── Step 4b: Bundle Kafka Binary ───
-echo -e "${BLUE}▶ Step 4b/6: Bundling Kafka binary...${NC}"
-KAFKA_BINARY="$SCRIPT_DIR/backend/repo/kafka/kafka_2.13-3.7.0.tgz"
-mkdir -p "$BUILD_DIR/repo/kafka"
-if [ -f "$KAFKA_BINARY" ]; then
-    cp "$KAFKA_BINARY" "$BUILD_DIR/repo/kafka/"
-    KAFKA_SIZE=$(du -sh "$KAFKA_BINARY" | awk '{print $1}')
-    echo -e "${GREEN}✓ Kafka 3.7.0 binary bundled (${KAFKA_SIZE})${NC}"
-else
-    echo -e "${YELLOW}⚠ Kafka binary not found at $KAFKA_BINARY${NC}"
-    echo -e "${YELLOW}  The installer will auto-download it during install.${NC}"
-fi
-
-# ─── Step 5: Create Standalone install.sh ───
-echo -e "${BLUE}▶ Step 5/6: Creating installer...${NC}"
-cat > "$BUILD_DIR/install.sh" << 'INSTALLER_EOF'
-#!/usr/bin/env bash
-###############################################################################
 #
 #   ████████╗ █████╗ ███╗   ██╗████████╗ ██████╗ ██████╗
 #   ╚══██╔══╝██╔══██╗████╗  ██║╚══██╔══╝██╔═══██╗██╔══██╗
@@ -103,7 +8,7 @@ cat > "$BUILD_DIR/install.sh" << 'INSTALLER_EOF'
 #      ██║   ██║  ██║██║ ╚████║   ██║   ╚██████╔╝██║  ██║
 #      ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═══╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝
 #
-#   Tantor Kafka Manager — Installer v1.0.0
+#   Tantor Kafka Manager — One-Click Installer v1.0.0
 #
 #   Usage:
 #     sudo ./install.sh              # Install (auto-detects OS)
@@ -126,6 +31,9 @@ TANTOR_HOME="/opt/tantor"
 TANTOR_DATA="/var/lib/tantor"
 TANTOR_LOG="/var/log/tantor"
 TANTOR_USER="tantor"
+KAFKA_VERSION="3.7.0"
+KAFKA_SCALA="2.13"
+KAFKA_TGZ="kafka_${KAFKA_SCALA}-${KAFKA_VERSION}.tgz"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -177,7 +85,6 @@ detect_os() {
                 OS_NAME="$PRETTY_NAME"
                 ;;
             *)
-                # Try ID_LIKE
                 case "$ID_LIKE" in
                     *debian*|*ubuntu*) OS_FAMILY="debian"; OS_NAME="$PRETTY_NAME" ;;
                     *rhel*|*fedora*|*centos*) OS_FAMILY="rhel"; OS_NAME="$PRETTY_NAME" ;;
@@ -219,7 +126,7 @@ echo "     ██║   ██╔══██║██║╚██╗██║   
 echo "     ██║   ██║  ██║██║ ╚████║   ██║   ╚██████╔╝██║  ██║"
 echo "     ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═══╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝"
 echo -e "${NC}"
-echo -e "  ${BOLD}Kafka Cluster Manager — Installer v${VERSION}${NC}"
+echo -e "  ${BOLD}Kafka Cluster Manager — One-Click Installer v${VERSION}${NC}"
 echo ""
 
 detect_os
@@ -228,13 +135,9 @@ echo -e "  ${BLUE}OS Family:${NC}    $OS_FAMILY"
 echo -e "  ${BLUE}Install To:${NC}   $TANTOR_HOME"
 echo ""
 
-# ─── Verify Package Contents ───
+# ─── Verify source ───
 if [ ! -d "$INSTALL_DIR/backend/app" ]; then
-    echo -e "${RED}Error: backend/app not found. Are you running from the tantor directory?${NC}"
-    exit 1
-fi
-if [ ! -d "$INSTALL_DIR/frontend/dist" ]; then
-    echo -e "${RED}Error: frontend/dist not found. The frontend is not built.${NC}"
+    echo -e "${RED}Error: backend/app not found. Run from the tantor repo root.${NC}"
     exit 1
 fi
 
@@ -245,8 +148,8 @@ if [ "$FORCE" != true ]; then
     case "$CONFIRM" in [yY]|[yY][eE][sS]) ;; *) echo "Cancelled."; exit 0 ;; esac
 fi
 
-# ─── Install System Dependencies ───
-echo -e "\n${BLUE}▶ Step 1/8: Installing system dependencies...${NC}"
+# ─── Step 1: System Dependencies ───
+echo -e "\n${BLUE}▶ Step 1/9: Installing system dependencies...${NC}"
 
 install_deps_debian() {
     export DEBIAN_FRONTEND=noninteractive
@@ -257,6 +160,12 @@ install_deps_debian() {
         openssh-client sshpass \
         wget curl jq gnupg ca-certificates net-tools \
         > /dev/null 2>&1
+
+    # Install Node.js 20 for building frontend
+    if ! command -v node &>/dev/null || [ "$(node -v | cut -d. -f1 | tr -d v)" -lt 18 ]; then
+        curl -fsSL https://deb.nodesource.com/setup_20.x | bash - >/dev/null 2>&1
+        apt-get install -y -qq nodejs > /dev/null 2>&1
+    fi
     echo -e "${GREEN}✓ System packages installed${NC}"
 }
 
@@ -284,6 +193,12 @@ install_deps_rhel() {
         openssh-clients sshpass \
         wget curl jq ca-certificates net-tools \
         > /dev/null 2>&1
+
+    # Install Node.js 20 for building frontend
+    if ! command -v node &>/dev/null || [ "$(node -v | cut -d. -f1 | tr -d v)" -lt 18 ]; then
+        curl -fsSL https://rpm.nodesource.com/setup_20.x | bash - >/dev/null 2>&1
+        dnf install -y -q nodejs > /dev/null 2>&1
+    fi
     echo -e "${GREEN}✓ System packages installed${NC}"
 }
 
@@ -293,10 +208,10 @@ else
     install_deps_rhel
 fi
 
-# ─── Create User & Directories ───
-echo -e "${BLUE}▶ Step 2/8: Creating user and directories...${NC}"
+# ─── Step 2: Create User & Directories ───
+echo -e "${BLUE}▶ Step 2/9: Creating user and directories...${NC}"
 
-id "$TANTOR_USER" &>/dev/null || useradd -r -s /usr/sbin/nologin "$TANTOR_USER"
+id "$TANTOR_USER" &>/dev/null || useradd -r -m -s /bin/bash "$TANTOR_USER"
 
 mkdir -p \
     "$TANTOR_HOME/backend" \
@@ -313,14 +228,29 @@ mkdir -p \
     "$TANTOR_LOG/backend" \
     "$TANTOR_LOG/nginx"
 
-# Grant tantor user passwordless sudo (needed for monitoring install via Prometheus/Grafana)
+# Grant tantor user passwordless sudo
 echo "${TANTOR_USER} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/tantor
 chmod 440 /etc/sudoers.d/tantor
 
 echo -e "${GREEN}✓ User '${TANTOR_USER}' and directories created${NC}"
 
-# ─── Install Python Dependencies (in venv — PEP 668 safe) ───
-echo -e "${BLUE}▶ Step 3/8: Installing Python dependencies...${NC}"
+# ─── Step 3: Build Frontend ───
+echo -e "${BLUE}▶ Step 3/9: Building frontend...${NC}"
+
+# Check if pre-built dist exists (tarball install)
+if [ -d "$INSTALL_DIR/frontend/dist" ] && [ -f "$INSTALL_DIR/frontend/dist/index.html" ]; then
+    echo -e "${GREEN}✓ Frontend already built (pre-built dist found)${NC}"
+else
+    # Build from source (GitHub clone install)
+    cd "$INSTALL_DIR/frontend"
+    npm ci --prefer-offline 2>/dev/null || npm install 2>/dev/null
+    npm run build 2>/dev/null
+    cd "$INSTALL_DIR"
+    echo -e "${GREEN}✓ Frontend built from source${NC}"
+fi
+
+# ─── Step 4: Python Dependencies ───
+echo -e "${BLUE}▶ Step 4/9: Installing Python dependencies...${NC}"
 
 python3 -m venv "$TANTOR_HOME/venv"
 "$TANTOR_HOME/venv/bin/pip" install --upgrade pip -q 2>/dev/null
@@ -328,18 +258,18 @@ python3 -m venv "$TANTOR_HOME/venv"
 
 echo -e "${GREEN}✓ Python venv created and dependencies installed${NC}"
 
-# ─── Copy Backend ───
-echo -e "${BLUE}▶ Step 4/8: Installing backend...${NC}"
+# ─── Step 5: Install Backend ───
+echo -e "${BLUE}▶ Step 5/9: Installing backend...${NC}"
 
 cp -r "$INSTALL_DIR/backend/app" "$TANTOR_HOME/backend/"
 cp "$INSTALL_DIR/backend/requirements.txt" "$TANTOR_HOME/backend/"
 
-# Create symlinks for persistent data
+# Symlinks for persistent data
 ln -sf "$TANTOR_DATA/db/tantor.db" "$TANTOR_HOME/backend/tantor.db"
 ln -sf "$TANTOR_DATA/repo" "$TANTOR_HOME/backend/repo"
 ln -sf "$TANTOR_DATA/ansible_work" "$TANTOR_HOME/backend/ansible_work"
 
-# Create .env with CORS for all local addresses
+# Create .env with CORS
 SERVER_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "localhost")
 cat > "$TANTOR_HOME/backend/.env" << ENVEOF
 CORS_ORIGINS=["http://localhost","http://127.0.0.1","http://${SERVER_IP}"]
@@ -347,56 +277,79 @@ ENVEOF
 
 echo -e "${GREEN}✓ Backend installed${NC}"
 
-# ─── Copy Kafka Binary to Repo ───
-echo -e "${BLUE}▶ Step 4b/8: Installing Kafka binary...${NC}"
+# ─── Step 6: Install Frontend ───
+echo -e "${BLUE}▶ Step 6/9: Installing frontend...${NC}"
 
-KAFKA_BUNDLED="$INSTALL_DIR/repo/kafka/kafka_2.13-3.7.0.tgz"
-KAFKA_DEST="$TANTOR_DATA/repo/kafka/kafka_2.13-3.7.0.tgz"
+cp -r "$INSTALL_DIR/frontend/dist/"* "$TANTOR_HOME/frontend/dist/"
 
-if [ -f "$KAFKA_BUNDLED" ]; then
-    cp "$KAFKA_BUNDLED" "$KAFKA_DEST"
-    echo -e "${GREEN}✓ Kafka 3.7.0 binary installed from bundle${NC}"
+echo -e "${GREEN}✓ Frontend installed${NC}"
+
+# ─── Step 7: Download Kafka Binary ───
+echo -e "${BLUE}▶ Step 7/9: Installing Kafka binary...${NC}"
+
+KAFKA_DEST="$TANTOR_DATA/repo/kafka/$KAFKA_TGZ"
+
+# Check bundled (tarball install), local repo, or download
+if [ -f "$INSTALL_DIR/repo/kafka/$KAFKA_TGZ" ]; then
+    cp "$INSTALL_DIR/repo/kafka/$KAFKA_TGZ" "$KAFKA_DEST"
+    echo -e "${GREEN}✓ Kafka ${KAFKA_VERSION} installed from bundle${NC}"
+elif [ -f "$INSTALL_DIR/backend/repo/kafka/$KAFKA_TGZ" ]; then
+    cp "$INSTALL_DIR/backend/repo/kafka/$KAFKA_TGZ" "$KAFKA_DEST"
+    echo -e "${GREEN}✓ Kafka ${KAFKA_VERSION} installed from local repo${NC}"
 elif [ -f "$KAFKA_DEST" ]; then
-    echo -e "${GREEN}✓ Kafka 3.7.0 binary already present${NC}"
+    echo -e "${GREEN}✓ Kafka ${KAFKA_VERSION} already present${NC}"
 else
-    echo -e "${YELLOW}  Downloading Kafka 3.7.0 from Apache archive...${NC}"
-    KAFKA_URL="https://archive.apache.org/dist/kafka/3.7.0/kafka_2.13-3.7.0.tgz"
-    if curl -fSL --connect-timeout 15 --max-time 300 -o "$KAFKA_DEST" "$KAFKA_URL" 2>/dev/null; then
-        echo -e "${GREEN}✓ Kafka 3.7.0 downloaded ($(du -sh "$KAFKA_DEST" | awk '{print $1}'))${NC}"
+    echo -e "${YELLOW}  Downloading Kafka ${KAFKA_VERSION} (~113 MB)...${NC}"
+    KAFKA_URL="https://archive.apache.org/dist/kafka/${KAFKA_VERSION}/${KAFKA_TGZ}"
+    if curl -fSL --connect-timeout 15 --max-time 600 --progress-bar -o "$KAFKA_DEST" "$KAFKA_URL"; then
+        echo -e "${GREEN}✓ Kafka ${KAFKA_VERSION} downloaded ($(du -sh "$KAFKA_DEST" | awk '{print $1}'))${NC}"
     else
-        echo -e "${YELLOW}⚠ Could not download Kafka binary. Upload it via the UI after install.${NC}"
+        echo -e "${YELLOW}⚠ Download failed. Upload Kafka binary via UI after install.${NC}"
         rm -f "$KAFKA_DEST"
     fi
 fi
 
-# ─── Copy Frontend (Pre-Built) ───
-echo -e "${BLUE}▶ Step 5/8: Installing frontend...${NC}"
-
-cp -r "$INSTALL_DIR/frontend/dist/"* "$TANTOR_HOME/frontend/dist/"
-
-echo -e "${GREEN}✓ Frontend installed (pre-built)${NC}"
-
-# ─── Configure Nginx & Systemd ───
-echo -e "${BLUE}▶ Step 6/8: Configuring services...${NC}"
+# ─── Step 8: Configure Services ───
+echo -e "${BLUE}▶ Step 8/9: Configuring services...${NC}"
 
 # Nginx config
+NGINX_CONF='server {
+    listen 80 default_server;
+    server_name _;
+
+    root /opt/tantor/frontend/dist;
+    index index.html;
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_read_timeout 300s;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}'
+
 if [ "$OS_FAMILY" = "debian" ]; then
-    cp "$INSTALL_DIR/config/nginx-tantor.conf" /etc/nginx/sites-enabled/tantor.conf
+    echo "$NGINX_CONF" > /etc/nginx/sites-enabled/tantor.conf
     rm -f /etc/nginx/sites-enabled/default
 else
-    cp "$INSTALL_DIR/config/nginx-tantor.conf" /etc/nginx/conf.d/tantor.conf
+    echo "$NGINX_CONF" > /etc/nginx/conf.d/tantor.conf
     rm -f /etc/nginx/conf.d/default.conf
-    # RHEL nginx.conf has a default server block that conflicts — remove it
+    # Remove default server block in RHEL nginx.conf
     if grep -q 'default_server' /etc/nginx/nginx.conf 2>/dev/null; then
         sed -i '/^    server {/,/^    }/d' /etc/nginx/nginx.conf
     fi
-    # SELinux: allow nginx to proxy to backend
+    # SELinux
     if command -v setsebool &>/dev/null; then
         setsebool -P httpd_can_network_connect 1 2>/dev/null || true
     fi
 fi
 
-# Systemd service (using venv uvicorn)
+# Systemd service
 cat > /etc/systemd/system/tantor-backend.service << 'SYSEOF'
 [Unit]
 Description=Tantor Kafka Manager — Backend API
@@ -426,21 +379,11 @@ SYSEOF
 systemctl daemon-reload
 systemctl enable tantor-backend nginx >/dev/null 2>&1
 
-# Install tantorctl CLI
-cp "$INSTALL_DIR/bin/tantorctl" "$TANTOR_HOME/bin/tantorctl"
-chmod +x "$TANTOR_HOME/bin/tantorctl"
-ln -sf "$TANTOR_HOME/bin/tantorctl" /usr/local/bin/tantorctl
-
-# Symlink venv binaries so ansible-playbook is accessible
+# Symlink ansible binaries
 ln -sf "$TANTOR_HOME/venv/bin/ansible-playbook" /usr/local/bin/ansible-playbook 2>/dev/null || true
 ln -sf "$TANTOR_HOME/venv/bin/ansible" /usr/local/bin/ansible 2>/dev/null || true
 
-echo -e "${GREEN}✓ Nginx, systemd, and tantorctl configured${NC}"
-
-# ─── Set Ownership & Start ───
-echo -e "${BLUE}▶ Step 7/8: Setting up SSH for deployment...${NC}"
-
-# Create tantor user home with SSH and Ansible support
+# Setup SSH for tantor user (for deploying Kafka to remote hosts)
 mkdir -p /home/${TANTOR_USER}/.ssh /home/${TANTOR_USER}/.ansible/tmp
 if [ ! -f /home/${TANTOR_USER}/.ssh/id_rsa ]; then
     ssh-keygen -t rsa -b 4096 -f /home/${TANTOR_USER}/.ssh/id_rsa -N "" -q
@@ -448,14 +391,13 @@ fi
 chown -R "${TANTOR_USER}:${TANTOR_USER}" /home/${TANTOR_USER}
 chmod 700 /home/${TANTOR_USER}/.ssh
 chmod 600 /home/${TANTOR_USER}/.ssh/id_rsa 2>/dev/null || true
-usermod -d /home/${TANTOR_USER} -s /bin/bash ${TANTOR_USER} 2>/dev/null || true
 
-echo -e "${GREEN}✓ SSH keys generated for deployment${NC}"
+echo -e "${GREEN}✓ Nginx, systemd, and SSH configured${NC}"
 
-echo -e "${BLUE}▶ Step 8/8: Starting services...${NC}"
+# ─── Step 9: Start Services ───
+echo -e "${BLUE}▶ Step 9/9: Starting services...${NC}"
 
 chown -R "$TANTOR_USER:$TANTOR_USER" "$TANTOR_HOME" "$TANTOR_DATA" "$TANTOR_LOG"
-# Nginx needs read access to frontend
 chmod -R o+r "$TANTOR_HOME/frontend/dist"
 
 systemctl start nginx
@@ -477,7 +419,7 @@ if [ "$HTTP" = "200" ]; then
     echo -e "${GREEN}✓ Tantor is running!${NC}"
 else
     echo ""
-    echo -e "${YELLOW}⚠ Tantor is still starting. Check: tantorctl logs error${NC}"
+    echo -e "${YELLOW}⚠ Tantor is still starting. Check: journalctl -u tantor-backend${NC}"
 fi
 
 # ─── Done ───
@@ -489,59 +431,14 @@ echo ""
 echo -e "  ${GREEN}Open in browser:${NC}  http://${SERVER_IP}"
 echo -e "  ${GREEN}Login:${NC}            admin / admin"
 echo ""
-echo -e "  ${BLUE}Commands:${NC}"
-echo "    tantorctl status         — Check service status"
-echo "    tantorctl logs           — View logs"
-echo "    tantorctl restart        — Restart services"
-echo "    tantorctl backup         — Backup database"
-echo "    tantorctl reset-password — Reset admin password"
-echo ""
-echo -e "  ${BLUE}Next steps:${NC}"
+echo -e "  ${BLUE}Quick start:${NC}"
 echo "    1. Open the UI and change the default password"
 echo "    2. Add your Linux servers as hosts (Hosts → Add Host)"
 echo "    3. Create a Kafka cluster (Clusters → Create)"
 echo "    4. Deploy and manage from the UI"
 echo ""
-INSTALLER_EOF
-
-chmod +x "$BUILD_DIR/install.sh"
-echo -e "${GREEN}✓ Standalone installer created${NC}"
-
-# ─── Create the tarball ───
-echo -e "\n${BLUE}▶ Creating release tarball...${NC}"
-# Remove macOS resource forks and __pycache__
-find "$BUILD_DIR" -name '._*' -delete 2>/dev/null || true
-find "$BUILD_DIR" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
-find "$BUILD_DIR" -name '*.pyc' -delete 2>/dev/null || true
-
-cd /tmp
-# Use COPYFILE_DISABLE to prevent macOS from adding ._ files
-COPYFILE_DISABLE=1 tar czf "$OUTPUT" "$RELEASE_NAME"
-rm -rf "$BUILD_DIR"
-
-# ─── Summary ───
-SIZE=$(du -sh "$OUTPUT" | awk '{print $1}')
-
-echo ""
-echo -e "${CYAN}╔══════════════════════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║              Release Built Successfully             ║${NC}"
-echo -e "${CYAN}╚══════════════════════════════════════════════════════╝${NC}"
-echo ""
-echo -e "  ${GREEN}File:${NC} ${RELEASE_NAME}-linux.tar.gz"
-echo -e "  ${GREEN}Size:${NC} ${SIZE}"
-echo -e "  ${GREEN}Path:${NC} ${OUTPUT}"
-echo ""
-echo -e "  ${BLUE}How your users install it:${NC}"
-echo ""
-echo "    # Download (from GitHub Releases)"
-echo "    curl -LO https://github.com/jimmy-fb/tantor/releases/download/v${VERSION}/${RELEASE_NAME}-linux.tar.gz"
-echo ""
-echo "    # Extract"
-echo "    tar xzf ${RELEASE_NAME}-linux.tar.gz"
-echo ""
-echo "    # Install"
-echo "    cd ${RELEASE_NAME}"
-echo "    sudo ./install.sh"
-echo ""
-echo -e "  ${BLUE}That's it. No git, no Node.js, no build tools needed.${NC}"
+echo -e "  ${BLUE}Service commands:${NC}"
+echo "    systemctl status tantor-backend    — Check backend"
+echo "    systemctl status nginx             — Check nginx"
+echo "    journalctl -u tantor-backend -f    — View logs"
 echo ""

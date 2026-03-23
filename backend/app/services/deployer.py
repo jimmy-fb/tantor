@@ -101,14 +101,28 @@ def _run_ansible_deployment(
     kafka_tgz = f"kafka_{scala_version}-{kafka_version}.tgz"
     kafka_tgz_path = Path(settings.KAFKA_REPO_DIR) / kafka_tgz
 
-    # Check binary exists in airgapped repo
+    # Check binary exists in airgapped repo; auto-download if missing
     if not kafka_tgz_path.exists():
-        _log(task_id, f"ERROR: Kafka binary not found in repo: {kafka_tgz_path}")
-        _log(task_id, f"Place {kafka_tgz} in {settings.KAFKA_REPO_DIR}/ or upload via the Kafka Versions page")
-        _deployment_tasks[task_id]["status"] = "error"
-        cluster.state = "error"
-        db.commit()
-        return
+        _log(task_id, f"Kafka binary not found locally. Downloading {kafka_tgz}...")
+        kafka_tgz_path.parent.mkdir(parents=True, exist_ok=True)
+        download_url = f"https://downloads.apache.org/kafka/{kafka_version}/{kafka_tgz}"
+        archive_url = f"https://archive.apache.org/dist/kafka/{kafka_version}/{kafka_tgz}"
+        # Try primary, then archive
+        import urllib.request
+        try:
+            urllib.request.urlretrieve(download_url, str(kafka_tgz_path))
+        except Exception:
+            _log(task_id, f"Primary mirror failed, trying archive...")
+            try:
+                urllib.request.urlretrieve(archive_url, str(kafka_tgz_path))
+            except Exception as dl_err:
+                _log(task_id, f"ERROR: Failed to download Kafka binary: {dl_err}")
+                _log(task_id, f"Place {kafka_tgz} in {settings.KAFKA_REPO_DIR}/ or upload via the Kafka Versions page")
+                _deployment_tasks[task_id]["status"] = "error"
+                cluster.state = "error"
+                db.commit()
+                return
+        _log(task_id, f"Downloaded {kafka_tgz} ({kafka_tgz_path.stat().st_size // (1024*1024)} MB)")
 
     _log(task_id, f"Using local Kafka binary: {kafka_tgz} ({kafka_tgz_path.stat().st_size // (1024*1024)} MB)")
 
