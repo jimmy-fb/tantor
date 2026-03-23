@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Network, LogIn, AlertCircle } from 'lucide-react';
+import { LogIn, AlertCircle } from 'lucide-react';
 import { login } from '../lib/api';
 import { setTokens } from '../lib/auth';
 
@@ -35,10 +35,7 @@ export default function Login() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl mb-4">
-            <Network className="text-white" size={32} />
-          </div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">Tantor</h1>
+          <img src="/tantor-logo.png" alt="Tantor" className="h-14 mx-auto mb-2" />
           <p className="text-gray-400 mt-1">Kafka Cluster Manager</p>
         </div>
 

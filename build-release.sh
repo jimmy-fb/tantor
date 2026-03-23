@@ -249,8 +249,24 @@ install_deps_debian() {
 
 install_deps_rhel() {
     dnf install -y -q epel-release 2>/dev/null || true
+
+    # RHEL 8.x ships Python 3.6 — too old for FastAPI. Install 3.11 via AppStream.
+    local py_ver
+    py_ver=$(python3 -c 'import sys; print(sys.version_info.minor)' 2>/dev/null || echo "0")
+    if [ "$py_ver" -lt 9 ]; then
+        echo "  Default Python 3.${py_ver} too old, installing Python 3.11..."
+        dnf module enable -y python311 2>/dev/null || true
+        dnf install -y -q python3.11 python3.11-pip python3.11-devel 2>/dev/null
+        if command -v python3.11 &>/dev/null; then
+            alternatives --set python3 /usr/bin/python3.11 2>/dev/null || \
+                alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 2>/dev/null || true
+        else
+            echo -e "${RED}ERROR: Failed to install Python 3.11${NC}"
+            exit 1
+        fi
+    fi
+
     dnf install -y -q \
-        python3 python3-pip python3-devel \
         nginx \
         openssh-clients sshpass \
         wget curl jq ca-certificates net-tools \
@@ -335,6 +351,14 @@ if [ "$OS_FAMILY" = "debian" ]; then
 else
     cp "$INSTALL_DIR/config/nginx-tantor.conf" /etc/nginx/conf.d/tantor.conf
     rm -f /etc/nginx/conf.d/default.conf
+    # RHEL nginx.conf has a default server block that conflicts — remove it
+    if grep -q 'default_server' /etc/nginx/nginx.conf 2>/dev/null; then
+        sed -i '/^    server {/,/^    }/d' /etc/nginx/nginx.conf
+    fi
+    # SELinux: allow nginx to proxy to backend
+    if command -v setsebool &>/dev/null; then
+        setsebool -P httpd_can_network_connect 1 2>/dev/null || true
+    fi
 fi
 
 # Systemd service (using venv uvicorn)

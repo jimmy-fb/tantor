@@ -293,7 +293,11 @@ install_native_mode() {
 
     # ─── Install Python dependencies ───
     log_step "Installing Python packages"
-    pip3 install --quiet -r backend/requirements.txt
+    if [ -n "${TANTOR_PIP_CMD:-}" ]; then
+        $TANTOR_PIP_CMD install --quiet -r backend/requirements.txt
+    else
+        pip3 install --quiet -r backend/requirements.txt
+    fi
     log_info "Python packages installed"
 
     # ─── Copy backend ───
@@ -329,6 +333,14 @@ install_native_mode() {
     cp installer/config/nginx-tantor.conf /etc/nginx/conf.d/tantor.conf
     rm -f /etc/nginx/sites-enabled/default 2>/dev/null || true
     rm -f /etc/nginx/conf.d/default.conf 2>/dev/null || true
+    # RHEL nginx.conf has a default server block that conflicts — remove it
+    if grep -q 'default_server' /etc/nginx/nginx.conf 2>/dev/null; then
+        sed -i '/^    server {/,/^    }/d' /etc/nginx/nginx.conf
+    fi
+    # SELinux: allow nginx to proxy to backend
+    if command -v setsebool &>/dev/null; then
+        setsebool -P httpd_can_network_connect 1 2>/dev/null || true
+    fi
     log_info "Nginx configured"
 
     # ─── Systemd service ───
@@ -395,9 +407,32 @@ install_deps_debian() {
 
 install_deps_rhel() {
     dnf install -y epel-release >/dev/null 2>&1 || true
+
+    # Determine Python version — need 3.9+ for FastAPI
+    # RHEL 8.x ships Python 3.6 by default; use AppStream module for 3.11
+    local PYTHON_CMD="python3"
+    local PIP_CMD="pip3"
+    local py_ver
+    py_ver=$(python3 -c 'import sys; print(sys.version_info.minor)' 2>/dev/null || echo "0")
+
+    if [ "$py_ver" -lt 9 ]; then
+        log_info "Default Python 3.${py_ver} too old, installing Python 3.11..."
+        dnf module enable -y python311 2>/dev/null || true
+        dnf install -y python3.11 python3.11-pip python3.11-devel >/dev/null 2>&1
+        if command -v python3.11 &>/dev/null; then
+            PYTHON_CMD="python3.11"
+            PIP_CMD="python3.11 -m pip"
+            # Set alternatives so python3/pip3 point to 3.11
+            alternatives --set python3 /usr/bin/python3.11 2>/dev/null || \
+                alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 2>/dev/null || true
+            log_info "Python 3.11 installed and set as default python3"
+        else
+            log_error "Failed to install Python 3.11 — cannot continue"
+            exit 1
+        fi
+    fi
+
     dnf install -y \
-        python3 \
-        python3-pip \
         nginx \
         openssh-clients \
         sshpass \
@@ -415,6 +450,10 @@ install_deps_rhel() {
         dnf install -y nodejs >/dev/null 2>&1
     fi
     log_info "System packages installed (RHEL/Rocky)"
+
+    # Export for use by pip install step
+    export TANTOR_PYTHON_CMD="$PYTHON_CMD"
+    export TANTOR_PIP_CMD="$PIP_CMD"
 }
 
 # ─── Install tantorctl wrapper on Docker host ───

@@ -6,13 +6,31 @@ from cryptography.fernet import Fernet
 _BASE_DIR = Path(__file__).parent.parent
 
 
+def _load_or_generate_key(key_file: Path) -> str:
+    """Load a key from a file, or generate and persist a new one.
+
+    This ensures all uvicorn workers share the same key.
+    """
+    if key_file.exists():
+        return key_file.read_text().strip()
+    key = Fernet.generate_key().decode()
+    key_file.parent.mkdir(parents=True, exist_ok=True)
+    key_file.write_text(key)
+    return key
+
+
+_SECRETS_DIR = _BASE_DIR / ".secrets"
+_DEFAULT_FERNET_KEY = _load_or_generate_key(_SECRETS_DIR / "fernet.key")
+_DEFAULT_JWT_KEY = _load_or_generate_key(_SECRETS_DIR / "jwt.key")
+
+
 class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./tantor.db"
-    FERNET_KEY: str = Fernet.generate_key().decode()
+    FERNET_KEY: str = _DEFAULT_FERNET_KEY
     CORS_ORIGINS: list[str] = ["http://localhost:5173", "http://localhost", "http://localhost:80"]
 
     # JWT Auth
-    JWT_SECRET_KEY: str = Fernet.generate_key().decode()
+    JWT_SECRET_KEY: str = _DEFAULT_JWT_KEY
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 

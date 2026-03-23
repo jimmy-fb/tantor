@@ -35,7 +35,7 @@ export default function Sidebar() {
   return (
     <aside className="w-64 bg-gray-900 text-white flex flex-col min-h-screen">
       <div className="p-6 border-b border-gray-800">
-        <h1 className="text-xl font-bold tracking-tight">Tantor</h1>
+        <img src="/tantor-logo.png" alt="Tantor" className="h-8" />
         <p className="text-xs text-gray-400 mt-1">Kafka Cluster Manager</p>
       </div>
 

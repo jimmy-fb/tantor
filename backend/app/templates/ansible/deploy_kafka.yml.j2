@@ -3,6 +3,25 @@
   hosts: all
   become: true
   tasks:
+    - name: Gather OS facts
+      setup:
+        gather_subset:
+          - '!all'
+          - 'os_family'
+
+    - name: Install Java (Debian/Ubuntu)
+      apt:
+        name: openjdk-17-jre-headless
+        state: present
+        update_cache: true
+      when: ansible_os_family == "Debian"
+
+    - name: Install Java (RHEL/Rocky/CentOS)
+      dnf:
+        name: java-17-openjdk-headless
+        state: present
+      when: ansible_os_family == "RedHat"
+
     - name: Create kafka group
       group:
         name: kafka
@@ -14,7 +33,8 @@
         group: kafka
         system: true
         shell: /bin/false
-        create_home: false
+        create_home: true
+        home: /home/kafka
 
     - name: Create required directories
       file:

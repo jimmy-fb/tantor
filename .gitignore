@@ -17,3 +17,5 @@ backend/repo/kafka/*.tgz
 backend/repo/ksqldb/*.tgz
 *.tgz
 tantor-*.tar.gz
+.secrets/
+.DS_Store
