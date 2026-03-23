@@ -400,8 +400,8 @@ echo -e "${BLUE}▶ Step 9/9: Starting services...${NC}"
 chown -R "$TANTOR_USER:$TANTOR_USER" "$TANTOR_HOME" "$TANTOR_DATA" "$TANTOR_LOG"
 chmod -R o+r "$TANTOR_HOME/frontend/dist"
 
-systemctl start nginx
-systemctl start tantor-backend
+systemctl restart nginx
+systemctl restart tantor-backend
 
 # Wait for health
 echo -n "  Waiting for Tantor to start"
