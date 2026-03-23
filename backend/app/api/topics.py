@@ -51,6 +51,28 @@ def delete_topic(cluster_id: str, topic_name: str, db: Session = Depends(get_db)
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.put("/topics/{topic_name}/config")
+def update_topic_config(cluster_id: str, topic_name: str, body: dict, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    """Update topic configuration (e.g. retention.ms, cleanup.policy)."""
+    try:
+        return kafka_admin.alter_topic_config(cluster_id, topic_name, body["configs"], db)
+    except KeyError:
+        raise HTTPException(status_code=422, detail="Request body must include 'configs' dict")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.put("/topics/{topic_name}/partitions")
+def update_topic_partitions(cluster_id: str, topic_name: str, body: dict, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    """Increase the number of partitions for a topic."""
+    try:
+        return kafka_admin.increase_partitions(cluster_id, topic_name, body["count"], db)
+    except KeyError:
+        raise HTTPException(status_code=422, detail="Request body must include 'count' integer")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.get("/consumer-groups")
 def list_consumer_groups(cluster_id: str, db: Session = Depends(get_db), _: User = Depends(require_monitor_or_above)):
     try:

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Trash2, RefreshCw, ChevronDown, ChevronUp, Loader2, Search, AlertCircle } from 'lucide-react';
+import { Plus, Trash2, RefreshCw, ChevronDown, ChevronUp, Loader2, Search, AlertCircle, Settings, Save } from 'lucide-react';
 import type { TopicInfo, TopicDetail } from '../../types';
-import { getTopics, getTopic, createTopic, deleteTopic } from '../../lib/api';
+import { getTopics, getTopic, createTopic, deleteTopic, updateTopicConfig, updateTopicPartitions } from '../../lib/api';
 
 interface Props {
   clusterId: string;
@@ -212,11 +212,13 @@ export default function TopicManager({ clusterId }: Props) {
                 <TopicRow
                   key={topic.name}
                   topic={topic}
+                  clusterId={clusterId}
                   expanded={expanded === topic.name}
                   expandedDetail={expanded === topic.name ? expandedDetail : null}
                   deleting={deleting === topic.name}
                   onExpand={() => handleExpand(topic.name)}
                   onDelete={() => handleDelete(topic.name)}
+                  onRefresh={fetchTopics}
                 />
               ))}
             </tbody>
@@ -227,16 +229,95 @@ export default function TopicManager({ clusterId }: Props) {
   );
 }
 
+const RETENTION_PRESETS = [
+  { label: '1 hour', value: '3600000' },
+  { label: '1 day', value: '86400000' },
+  { label: '7 days', value: '604800000' },
+  { label: '30 days', value: '2592000000' },
+  { label: 'Custom', value: 'custom' },
+];
+
+function formatRetention(ms: string): string {
+  const n = parseInt(ms, 10);
+  if (isNaN(n)) return ms;
+  if (n < 60000) return `${n} ms`;
+  if (n < 3600000) return `${Math.round(n / 60000)} min`;
+  if (n < 86400000) return `${Math.round(n / 3600000)} hr`;
+  return `${Math.round(n / 86400000)} day(s)`;
+}
+
 function TopicRow({
-  topic, expanded, expandedDetail, deleting, onExpand, onDelete,
+  topic, clusterId, expanded, expandedDetail, deleting, onExpand, onDelete, onRefresh,
 }: {
   topic: TopicInfo;
+  clusterId: string;
   expanded: boolean;
   expandedDetail: TopicDetail | null;
   deleting: boolean;
   onExpand: () => void;
   onDelete: () => void;
+  onRefresh: () => void;
 }) {
+  const [showSettings, setShowSettings] = useState(false);
+  const [retentionPreset, setRetentionPreset] = useState('');
+  const [retentionCustom, setRetentionCustom] = useState('');
+  const [newPartitionCount, setNewPartitionCount] = useState<number>(0);
+  const [savingConfig, setSavingConfig] = useState(false);
+  const [savingPartitions, setSavingPartitions] = useState(false);
+  const [settingsMsg, setSettingsMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+
+  // Initialize form values from topic detail when settings are opened
+  useEffect(() => {
+    if (showSettings && expandedDetail) {
+      const currentRetention = expandedDetail.configs?.['retention.ms'] || '';
+      const matchingPreset = RETENTION_PRESETS.find(p => p.value === currentRetention);
+      if (matchingPreset) {
+        setRetentionPreset(currentRetention);
+        setRetentionCustom('');
+      } else if (currentRetention) {
+        setRetentionPreset('custom');
+        setRetentionCustom(currentRetention);
+      } else {
+        setRetentionPreset('');
+        setRetentionCustom('');
+      }
+      setNewPartitionCount(expandedDetail.partitions || 0);
+    }
+  }, [showSettings, expandedDetail]);
+
+  const handleSaveConfig = async () => {
+    const retVal = retentionPreset === 'custom' ? retentionCustom : retentionPreset;
+    if (!retVal) return;
+    setSavingConfig(true);
+    setSettingsMsg(null);
+    try {
+      await updateTopicConfig(clusterId, topic.name, { 'retention.ms': retVal });
+      setSettingsMsg({ type: 'ok', text: 'Retention updated successfully' });
+      onRefresh();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setSettingsMsg({ type: 'err', text: msg || 'Failed to update config' });
+    } finally {
+      setSavingConfig(false);
+    }
+  };
+
+  const handleSavePartitions = async () => {
+    if (!newPartitionCount || newPartitionCount <= (expandedDetail?.partitions || 0)) return;
+    setSavingPartitions(true);
+    setSettingsMsg(null);
+    try {
+      await updateTopicPartitions(clusterId, topic.name, newPartitionCount);
+      setSettingsMsg({ type: 'ok', text: `Partitions increased to ${newPartitionCount}` });
+      onRefresh();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setSettingsMsg({ type: 'err', text: msg || 'Failed to update partitions' });
+    } finally {
+      setSavingPartitions(false);
+    }
+  };
+
   return (
     <>
       <tr className="border-b last:border-0 hover:bg-gray-50 cursor-pointer" onClick={onExpand}>
@@ -266,12 +347,16 @@ function TopicRow({
                   <h5 className="font-semibold text-gray-700 mb-1">Configuration</h5>
                   <div className="grid grid-cols-2 gap-1 font-mono">
                     {Object.entries(expandedDetail.configs).map(([k, v]) => (
-                      <div key={k}><span className="text-gray-500">{k}=</span>{v}</div>
+                      <div key={k}>
+                        <span className="text-gray-500">{k}=</span>
+                        {v}
+                        {k === 'retention.ms' && <span className="text-gray-400 ml-1">({formatRetention(String(v))})</span>}
+                      </div>
                     ))}
                   </div>
                 </div>
               )}
-              {/* Partition details */}
+              {/* Partition details with ISR color coding */}
               <div>
                 <h5 className="font-semibold text-gray-700 mb-1">Partition Details</h5>
                 <table className="w-full">
@@ -284,17 +369,114 @@ function TopicRow({
                     </tr>
                   </thead>
                   <tbody>
-                    {expandedDetail.partition_details.map((p, i) => (
-                      <tr key={i} className="font-mono">
-                        <td className="pr-4 py-0.5">{String(p.partition ?? i)}</td>
-                        <td className="pr-4 py-0.5">{String(p.leader ?? '-')}</td>
-                        <td className="pr-4 py-0.5">{Array.isArray(p.replicas) ? (p.replicas as number[]).join(', ') : String(p.replicas ?? '-')}</td>
-                        <td className="pr-4 py-0.5">{Array.isArray(p.isr) ? (p.isr as number[]).join(', ') : String(p.isr ?? '-')}</td>
-                      </tr>
-                    ))}
+                    {expandedDetail.partition_details.map((p, i) => {
+                      const replicas = Array.isArray(p.replicas) ? p.replicas as number[] : [];
+                      const isr = Array.isArray(p.isr) ? p.isr as number[] : [];
+                      const isrFull = replicas.length > 0 && isr.length === replicas.length;
+                      const isrEmpty = replicas.length > 0 && isr.length === 0;
+                      const isrColor = isrFull
+                        ? 'text-green-600'
+                        : isrEmpty
+                          ? 'text-red-600 font-semibold'
+                          : 'text-yellow-600 font-semibold';
+                      return (
+                        <tr key={i} className="font-mono">
+                          <td className="pr-4 py-0.5">{String(p.partition ?? i)}</td>
+                          <td className="pr-4 py-0.5">{String(p.leader ?? '-')}</td>
+                          <td className="pr-4 py-0.5">{replicas.length > 0 ? replicas.join(', ') : String(p.replicas ?? '-')}</td>
+                          <td className={`pr-4 py-0.5 ${isrColor}`}>
+                            {isr.length > 0 ? isr.join(', ') : String(p.isr ?? '-')}
+                            {!isrFull && replicas.length > 0 && (
+                              <span className="ml-1 text-[10px]">({isr.length}/{replicas.length})</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
+
+              {/* Edit Settings toggle */}
+              <div>
+                <button
+                  onClick={() => { setShowSettings(!showSettings); setSettingsMsg(null); }}
+                  className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  <Settings size={13} />
+                  {showSettings ? 'Hide Settings' : 'Edit Settings'}
+                </button>
+              </div>
+
+              {/* Edit Settings panel */}
+              {showSettings && (
+                <div className="bg-white border border-blue-200 rounded-lg p-3 space-y-3">
+                  {settingsMsg && (
+                    <div className={`text-xs px-2 py-1 rounded ${settingsMsg.type === 'ok' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                      {settingsMsg.text}
+                    </div>
+                  )}
+
+                  {/* Retention config */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Retention Period</label>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={retentionPreset}
+                        onChange={e => { setRetentionPreset(e.target.value); if (e.target.value !== 'custom') setRetentionCustom(''); }}
+                        className="px-2 py-1.5 border rounded text-xs"
+                      >
+                        <option value="">-- select --</option>
+                        {RETENTION_PRESETS.map(p => (
+                          <option key={p.value} value={p.value}>{p.label}</option>
+                        ))}
+                      </select>
+                      {retentionPreset === 'custom' && (
+                        <input
+                          type="text"
+                          value={retentionCustom}
+                          onChange={e => setRetentionCustom(e.target.value)}
+                          placeholder="e.g. 172800000"
+                          className="px-2 py-1.5 border rounded text-xs w-36"
+                        />
+                      )}
+                      <button
+                        onClick={handleSaveConfig}
+                        disabled={savingConfig || (!retentionPreset || (retentionPreset === 'custom' && !retentionCustom))}
+                        className="flex items-center gap-1 px-2.5 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                      >
+                        {savingConfig ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                        Save
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Partition count */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Partition Count (current: {expandedDetail.partitions})
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={expandedDetail.partitions + 1}
+                        value={newPartitionCount}
+                        onChange={e => setNewPartitionCount(Number(e.target.value))}
+                        className="px-2 py-1.5 border rounded text-xs w-24"
+                      />
+                      <button
+                        onClick={handleSavePartitions}
+                        disabled={savingPartitions || newPartitionCount <= expandedDetail.partitions}
+                        className="flex items-center gap-1 px-2.5 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                      >
+                        {savingPartitions ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                        Save
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-gray-400 mt-0.5">Partitions can only be increased, never decreased.</p>
+                  </div>
+                </div>
+              )}
             </div>
           </td>
         </tr>

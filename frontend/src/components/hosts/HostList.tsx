@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { Wifi, Loader2, Trash2, Shield } from 'lucide-react';
+import { Wifi, Loader2, Trash2, Shield, Pencil } from 'lucide-react';
 import type { Host, PrereqResult } from '../../types';
-import { testHost, checkPrereqs, deleteHost } from '../../lib/api';
+import { testHost, checkPrereqs, deleteHost, updateHost } from '../../lib/api';
+import { isAdmin } from '../../lib/auth';
 import PrereqResults from './PrereqResults';
+import EditHostModal from './EditHostModal';
 
 interface Props {
   hosts: Host[];
@@ -12,6 +14,7 @@ interface Props {
 export default function HostList({ hosts, onRefresh }: Props) {
   const [testing, setTesting] = useState<string | null>(null);
   const [checking, setChecking] = useState<string | null>(null);
+  const [editingHost, setEditingHost] = useState<Host | null>(null);
   const [prereqResults, setPrereqResults] = useState<Record<string, PrereqResult>>({});
   const [testMessages, setTestMessages] = useState<Record<string, { success: boolean; message: string }>>({});
 
@@ -85,6 +88,14 @@ export default function HostList({ hosts, onRefresh }: Props) {
                 {checking === host.id ? <Loader2 size={14} className="animate-spin" /> : <Shield size={14} />}
                 Prerequisites
               </button>
+              {isAdmin() && (
+                <button
+                  onClick={() => setEditingHost(host)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-50"
+                >
+                  <Pencil size={14} />
+                </button>
+              )}
               <button
                 onClick={() => handleDelete(host.id)}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50"
@@ -109,6 +120,17 @@ export default function HostList({ hosts, onRefresh }: Props) {
           )}
         </div>
       ))}
+
+      {editingHost && (
+        <EditHostModal
+          host={editingHost}
+          onSubmit={async (data) => {
+            await updateHost(editingHost.id, data);
+            onRefresh();
+          }}
+          onClose={() => setEditingHost(null)}
+        />
+      )}
     </div>
   );
 }

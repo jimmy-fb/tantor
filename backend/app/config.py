@@ -58,6 +58,7 @@ class Settings(BaseSettings):
     PROMETHEUS_VERSION: str = "2.51.0"
     NODE_EXPORTER_VERSION: str = "1.7.0"
     JMX_EXPORTER_VERSION: str = "0.20.0"
+    GRAFANA_VERSION: str = "10.4.1"
 
     # Ansible
     ANSIBLE_WORKING_DIR: str = str(_BASE_DIR / "ansible_work")

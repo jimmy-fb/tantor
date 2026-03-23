@@ -1,6 +1,7 @@
-"""Monitoring API — Built-in Kafka & system metrics via SSH (no external tools required)."""
+"""Monitoring API — Built-in Kafka & system metrics via SSH + optional Prometheus/Grafana."""
 
 import logging
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -10,10 +11,17 @@ from app.models.host import Host
 from app.models.service import Service
 from app.models.user import User
 from app.services.ssh_manager import SSHManager
-from app.api.deps import require_monitor_or_above
+from app.services.monitoring_deployer import MonitoringDeployer
+from app.api.deps import require_monitor_or_above, require_admin
 
 logger = logging.getLogger("tantor.monitoring")
 router = APIRouter(prefix="/api/monitoring", tags=["monitoring"])
+
+
+class MonitoringDeployRequest(BaseModel):
+    monitoring_host_id: str
+    grafana_port: int = 3000
+    prometheus_port: int = 9090
 
 
 def _ssh_exec(host: Host, command: str, timeout: int = 15) -> str:
@@ -251,3 +259,33 @@ df -m /var/lib/kafka/data 2>/dev/null | tail -1 | awk "{print \\"DATA_TOTAL_MB:\
         }
     except Exception as e:
         return {"error": str(e)}
+
+
+# ── Prometheus/Grafana deployment ─────────────────────
+
+@router.post("/clusters/{cluster_id}/deploy")
+def deploy_monitoring(
+    cluster_id: str,
+    req: MonitoringDeployRequest,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Deploy Prometheus + Grafana + JMX exporter for a cluster."""
+    try:
+        result = MonitoringDeployer.deploy_monitoring_stack(
+            cluster_id, req.monitoring_host_id,
+            req.grafana_port, req.prometheus_port, db,
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/clusters/{cluster_id}/grafana")
+def get_grafana_info(
+    cluster_id: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_monitor_or_above),
+):
+    """Get Grafana connection info for embedding."""
+    return MonitoringDeployer.get_grafana_info(cluster_id, db)

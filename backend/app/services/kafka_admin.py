@@ -105,6 +105,59 @@ class KafkaAdmin:
             raise ValueError(f"Failed to delete topic: {stderr}")
         return {"topic": name, "deleted": True}
 
+    # ── Topic Settings ───────────────────────────────────
+
+    @staticmethod
+    def alter_topic_config(cluster_id: str, topic_name: str, configs: dict, db: Session) -> dict:
+        """Alter topic-level configuration (e.g. retention.ms, cleanup.policy)."""
+        host, bootstrap = KafkaAdmin._get_broker(cluster_id, db)
+        kh = settings.KAFKA_INSTALL_DIR
+
+        config_str = ",".join(f"{k}={v}" for k, v in configs.items())
+        cmd = (
+            f"{kh}/bin/kafka-configs.sh --bootstrap-server {bootstrap} "
+            f"--alter --entity-type topics --entity-name {topic_name} "
+            f"--add-config {config_str}"
+        )
+
+        exit_code, stdout, stderr = KafkaAdmin._run_kafka_cmd(host, cmd)
+        if exit_code != 0:
+            raise ValueError(f"Failed to alter topic config: {stderr}")
+
+        KafkaAdmin._audit(db, cluster_id, "topic_config_altered", "topic", topic_name, str(configs))
+        db.commit()
+
+        return {"topic": topic_name, "updated": True, "configs": configs}
+
+    @staticmethod
+    def increase_partitions(cluster_id: str, topic_name: str, new_count: int, db: Session) -> dict:
+        """Increase the partition count for an existing topic."""
+        host, bootstrap = KafkaAdmin._get_broker(cluster_id, db)
+        kh = settings.KAFKA_INSTALL_DIR
+
+        # Validate new_count > current partitions
+        detail = KafkaAdmin.get_topic_detail(cluster_id, topic_name, db)
+        current = detail.get("partitions", 0)
+        if new_count <= current:
+            raise ValueError(
+                f"New partition count ({new_count}) must be greater than current ({current})"
+            )
+
+        cmd = (
+            f"{kh}/bin/kafka-topics.sh --bootstrap-server {bootstrap} "
+            f"--alter --topic {topic_name} --partitions {new_count}"
+        )
+
+        exit_code, stdout, stderr = KafkaAdmin._run_kafka_cmd(host, cmd)
+        if exit_code != 0:
+            raise ValueError(f"Failed to increase partitions: {stderr}")
+
+        KafkaAdmin._audit(db, cluster_id, "topic_partitions_increased", "topic", topic_name,
+                          f"from {current} to {new_count}")
+        db.commit()
+
+        return {"topic": topic_name, "partitions": new_count, "updated": True}
+
     # ── Consumer Groups ──────────────────────────────────
 
     @staticmethod
@@ -824,6 +877,198 @@ class KafkaAdmin:
                 })
 
         return acls
+
+    # ── Partition Rebalancing ─────────────────────────────
+
+    @staticmethod
+    def get_partition_distribution(cluster_id: str, db: Session) -> dict:
+        """Describe all topics and build broker-to-partition distribution map."""
+        host, bootstrap = KafkaAdmin._get_broker(cluster_id, db)
+        kh = settings.KAFKA_INSTALL_DIR
+
+        exit_code, stdout, stderr = KafkaAdmin._run_kafka_cmd(
+            host, f"{kh}/bin/kafka-topics.sh --bootstrap-server {bootstrap} --describe",
+            timeout=60,
+        )
+        if exit_code != 0:
+            raise ValueError(f"Failed to describe topics: {stderr}")
+
+        broker_leaders: dict[int, int] = {}
+        broker_replicas: dict[int, int] = {}
+        topics: dict[str, list[dict]] = {}
+
+        for line in stdout.strip().splitlines():
+            line = line.strip()
+            if not line.startswith("Topic:") or "Partition:" not in line:
+                continue
+            parts = line.split("\t")
+            topic_name = ""
+            partition = 0
+            leader = -1
+            replicas: list[int] = []
+            isr: list[int] = []
+            for part in parts:
+                part = part.strip()
+                if part.startswith("Topic:"):
+                    topic_name = part.split(":", 1)[1].strip()
+                elif part.startswith("Partition:"):
+                    partition = int(part.split(":")[1].strip())
+                elif part.startswith("Leader:"):
+                    leader = int(part.split(":")[1].strip())
+                elif part.startswith("Replicas:"):
+                    replicas = [int(x) for x in part.split(":")[1].strip().split(",")]
+                elif part.startswith("Isr:"):
+                    isr = [int(x) for x in part.split(":")[1].strip().split(",")]
+
+            if topic_name:
+                topics.setdefault(topic_name, [])
+                topics[topic_name].append({
+                    "partition": partition,
+                    "leader": leader,
+                    "replicas": replicas,
+                    "isr": isr,
+                })
+                if leader >= 0:
+                    broker_leaders[leader] = broker_leaders.get(leader, 0) + 1
+                for r in replicas:
+                    broker_replicas[r] = broker_replicas.get(r, 0) + 1
+
+        all_broker_ids = sorted(set(list(broker_leaders.keys()) + list(broker_replicas.keys())))
+        brokers = [
+            {
+                "broker_id": bid,
+                "leader_count": broker_leaders.get(bid, 0),
+                "replica_count": broker_replicas.get(bid, 0),
+            }
+            for bid in all_broker_ids
+        ]
+
+        topic_list = [
+            {"name": name, "partitions": parts}
+            for name, parts in sorted(topics.items())
+        ]
+
+        return {"brokers": brokers, "topics": topic_list}
+
+    @staticmethod
+    def generate_reassignment_plan(cluster_id: str, topics: list[str], broker_ids: list[int], db: Session) -> dict:
+        """Generate a partition reassignment plan using kafka-reassign-partitions.sh."""
+        host, bootstrap = KafkaAdmin._get_broker(cluster_id, db)
+        kh = settings.KAFKA_INSTALL_DIR
+
+        topics_json = json.dumps({"topics": [{"topic": t} for t in topics], "version": 1})
+        broker_list = ",".join(str(b) for b in broker_ids)
+
+        # Write topics JSON to temp file on broker
+        safe_json = topics_json.replace("'", "'\\''")
+        write_cmd = f"echo '{safe_json}' > /tmp/tantor_topics_to_move.json"
+        exit_code, _, stderr = KafkaAdmin._run_kafka_cmd(host, write_cmd)
+        if exit_code != 0:
+            raise ValueError(f"Failed to write topics file: {stderr}")
+
+        cmd = (
+            f"{kh}/bin/kafka-reassign-partitions.sh "
+            f"--bootstrap-server {bootstrap} "
+            f"--topics-to-move-json-file /tmp/tantor_topics_to_move.json "
+            f"--broker-list \"{broker_list}\" "
+            f"--generate"
+        )
+        exit_code, stdout, stderr = KafkaAdmin._run_kafka_cmd(host, cmd, timeout=60)
+        if exit_code != 0:
+            raise ValueError(f"Failed to generate reassignment plan: {stderr}")
+
+        current = {}
+        proposed = {}
+        lines = stdout.strip().splitlines()
+        section = None
+        for line in lines:
+            line = line.strip()
+            if "Current partition replica assignment" in line:
+                section = "current"
+                continue
+            elif "Proposed partition reassignment configuration" in line:
+                section = "proposed"
+                continue
+
+            if section and line.startswith("{"):
+                try:
+                    parsed = json.loads(line)
+                    if section == "current":
+                        current = parsed
+                    elif section == "proposed":
+                        proposed = parsed
+                except json.JSONDecodeError:
+                    pass
+
+        return {"current": current, "proposed": proposed}
+
+    @staticmethod
+    def execute_reassignment(cluster_id: str, reassignment_json: dict, db: Session) -> dict:
+        """Execute a partition reassignment plan."""
+        host, bootstrap = KafkaAdmin._get_broker(cluster_id, db)
+        kh = settings.KAFKA_INSTALL_DIR
+
+        reassign_str = json.dumps(reassignment_json)
+        safe_json = reassign_str.replace("'", "'\\''")
+        write_cmd = f"echo '{safe_json}' > /tmp/tantor_reassignment.json"
+        exit_code, _, stderr = KafkaAdmin._run_kafka_cmd(host, write_cmd)
+        if exit_code != 0:
+            raise ValueError(f"Failed to write reassignment file: {stderr}")
+
+        cmd = (
+            f"{kh}/bin/kafka-reassign-partitions.sh "
+            f"--bootstrap-server {bootstrap} "
+            f"--reassignment-json-file /tmp/tantor_reassignment.json "
+            f"--execute"
+        )
+        exit_code, stdout, stderr = KafkaAdmin._run_kafka_cmd(host, cmd, timeout=120)
+        if exit_code != 0:
+            raise ValueError(f"Failed to execute reassignment: {stderr}")
+
+        KafkaAdmin._audit(db, cluster_id, "partition_reassignment_executed", "cluster", cluster_id,
+                          f"partitions: {len(reassignment_json.get('partitions', []))}")
+        db.commit()
+
+        return {"success": True, "message": stdout.strip() or "Reassignment started"}
+
+    @staticmethod
+    def verify_reassignment(cluster_id: str, reassignment_json: dict, db: Session) -> dict:
+        """Verify the status of a partition reassignment."""
+        host, bootstrap = KafkaAdmin._get_broker(cluster_id, db)
+        kh = settings.KAFKA_INSTALL_DIR
+
+        reassign_str = json.dumps(reassignment_json)
+        safe_json = reassign_str.replace("'", "'\\''")
+        write_cmd = f"echo '{safe_json}' > /tmp/tantor_reassignment.json"
+        exit_code, _, stderr = KafkaAdmin._run_kafka_cmd(host, write_cmd)
+        if exit_code != 0:
+            raise ValueError(f"Failed to write reassignment file: {stderr}")
+
+        cmd = (
+            f"{kh}/bin/kafka-reassign-partitions.sh "
+            f"--bootstrap-server {bootstrap} "
+            f"--reassignment-json-file /tmp/tantor_reassignment.json "
+            f"--verify"
+        )
+        exit_code, stdout, stderr = KafkaAdmin._run_kafka_cmd(host, cmd, timeout=60)
+        if exit_code != 0:
+            raise ValueError(f"Failed to verify reassignment: {stderr}")
+
+        results = []
+        all_complete = True
+        for line in stdout.strip().splitlines():
+            line = line.strip()
+            if not line.startswith("Status of partition reassignment"):
+                # Parse lines like: "Reassignment of partition topic-0 is completed" or "still in progress"
+                if "is completed" in line.lower() or "is complete" in line.lower():
+                    results.append({"partition": line.split("partition")[1].split("is")[0].strip() if "partition" in line else line, "status": "completed"})
+                elif "in progress" in line.lower():
+                    results.append({"partition": line.split("partition")[1].split("is")[0].strip() if "partition" in line else line, "status": "in_progress"})
+                    all_complete = False
+                elif line:
+                    results.append({"partition": line, "status": "unknown"})
+
+        return {"complete": all_complete, "partitions": results, "raw": stdout.strip()}
 
     # ── Audit Helper ──────────────────────────────────────
 

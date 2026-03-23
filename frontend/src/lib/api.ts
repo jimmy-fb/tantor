@@ -115,6 +115,8 @@ export const getHealthInfo = () =>
 export const getHosts = () => api.get<Host[]>('/hosts').then(r => r.data);
 export const getHost = (id: string) => api.get<Host>(`/hosts/${id}`).then(r => r.data);
 export const createHost = (data: HostCreate) => api.post<Host>('/hosts', data).then(r => r.data);
+export const updateHost = (id: string, data: Partial<HostCreate>) =>
+  api.put<Host>(`/hosts/${id}`, data).then(r => r.data);
 export const deleteHost = (id: string) => api.delete(`/hosts/${id}`);
 export const testHost = (id: string) => api.post<HostTestResult>(`/hosts/${id}/test`).then(r => r.data);
 export const checkPrereqs = (id: string) => api.post<PrereqResult>(`/hosts/${id}/prerequisites`).then(r => r.data);
@@ -158,6 +160,10 @@ export const createTopic = (clusterId: string, data: TopicCreate) =>
   api.post(`/clusters/${clusterId}/topics`, data).then(r => r.data);
 export const deleteTopic = (clusterId: string, name: string) =>
   api.delete(`/clusters/${clusterId}/topics/${name}`).then(r => r.data);
+export const updateTopicConfig = (clusterId: string, topicName: string, configs: Record<string, string>) =>
+  api.put(`/clusters/${clusterId}/topics/${encodeURIComponent(topicName)}/config`, { configs }).then(r => r.data);
+export const updateTopicPartitions = (clusterId: string, topicName: string, count: number) =>
+  api.put(`/clusters/${clusterId}/topics/${encodeURIComponent(topicName)}/partitions`, { count }).then(r => r.data);
 
 // ── Consumer Groups ──────────────────────────────────
 export const getConsumerGroups = (clusterId: string) =>
@@ -247,7 +253,27 @@ export const getServiceLogs = (clusterId: string, params: {
   since?: string; priority?: string; grep?: string;
 }) => api.get<LogResponse>(`/clusters/${clusterId}/logs`, { params }).then(r => r.data);
 
-// ── Monitoring (built-in — no external tools) ────────
+// ── Partition Rebalancing ────────────────────────────
+export const getPartitionDistribution = (clusterId: string) =>
+  api.get(`/clusters/${clusterId}/partitions/distribution`).then(r => r.data);
+export const generateReassignmentPlan = (clusterId: string, data: { topics: string[]; broker_ids: number[] }) =>
+  api.post(`/clusters/${clusterId}/partitions/generate-plan`, data).then(r => r.data);
+export const executeReassignment = (clusterId: string, data: { reassignment: Record<string, unknown> }) =>
+  api.post(`/clusters/${clusterId}/partitions/execute`, data).then(r => r.data);
+export const verifyReassignment = (clusterId: string, data: { reassignment: Record<string, unknown> }) =>
+  api.post(`/clusters/${clusterId}/partitions/verify`, data).then(r => r.data);
+
+// ── Monitoring (built-in + Grafana) ──────────────────
 export const getMonitoringStatus = () => api.get('/monitoring/status').then(r => r.data);
 export const getClusterMetrics = (clusterId: string) =>
   api.get(`/monitoring/clusters/${clusterId}/metrics`).then(r => r.data);
+export const deployMonitoring = (clusterId: string, data: { monitoring_host_id: string; grafana_port?: number; prometheus_port?: number }) =>
+  api.post(`/monitoring/clusters/${clusterId}/deploy`, data).then(r => r.data);
+export const getGrafanaInfo = (clusterId: string) =>
+  api.get(`/monitoring/clusters/${clusterId}/grafana`).then(r => r.data);
+
+// ── LDAP / Active Directory ─────────────────────────
+export const getLdapConfig = () => api.get('/ldap/config').then(r => r.data);
+export const updateLdapConfig = (data: Record<string, unknown>) => api.put('/ldap/config', data).then(r => r.data);
+export const testLdapConnection = (data: { username: string; password: string }) => api.post('/ldap/test', data).then(r => r.data);
+export const syncLdapUsers = () => api.post('/ldap/sync-users').then(r => r.data);

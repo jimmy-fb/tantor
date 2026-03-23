@@ -13,6 +13,7 @@ import Monitoring from './pages/Monitoring';
 import KafkaExplorer from './pages/KafkaExplorer';
 import SecurityScan from './pages/SecurityScan';
 import ClusterLinking from './pages/ClusterLinking';
+import LdapSettings from './pages/LdapSettings';
 
 export default function App() {
   return (
@@ -32,6 +33,7 @@ export default function App() {
             <Route path="/kafka-explorer" element={<KafkaExplorer />} />
             <Route path="/security-scan" element={<SecurityScan />} />
             <Route path="/cluster-linking" element={<ClusterLinking />} />
+            <Route path="/ldap-settings" element={<LdapSettings />} />
           </Route>
         </Route>
       </Routes>

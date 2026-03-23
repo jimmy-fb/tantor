@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Server, Network, Plus, Package, Users, BarChart3, LogOut, User, Globe, Shield, Link2 } from 'lucide-react';
+import { LayoutDashboard, Server, Network, Plus, Package, Users, BarChart3, LogOut, User, Globe, Shield, Link2, KeyRound } from 'lucide-react';
 import { isAdmin, getUsername, clearTokens } from '../../lib/auth';
 import { getHealthInfo } from '../../lib/api';
 
@@ -29,7 +29,10 @@ export default function Sidebar() {
     { to: '/kafka-explorer', icon: Globe, label: 'Data Explorer' },
     { to: '/security-scan', icon: Shield, label: 'Security Scan' },
     { to: '/cluster-linking', icon: Link2, label: 'Cluster Linking' },
-    ...(admin ? [{ to: '/users', icon: Users, label: 'Users', adminOnly: true }] : []),
+    ...(admin ? [
+      { to: '/users', icon: Users, label: 'Users', adminOnly: true },
+      { to: '/ldap-settings', icon: KeyRound, label: 'LDAP / AD', adminOnly: true },
+    ] : []),
   ];
 
   return (

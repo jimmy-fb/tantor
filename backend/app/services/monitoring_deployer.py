@@ -1,0 +1,395 @@
+"""Deploy Prometheus, Grafana, and JMX exporter for Kafka monitoring."""
+
+import json
+import logging
+import time
+from pathlib import Path
+
+from sqlalchemy.orm import Session
+
+from app.config import settings
+from app.models.cluster import Cluster
+from app.models.host import Host
+from app.models.service import Service
+from app.models.monitoring import MonitoringConfig
+from app.services.ssh_manager import SSHManager
+from app.services.crypto import decrypt
+
+logger = logging.getLogger("tantor.monitoring_deployer")
+
+PROMETHEUS_VERSION = "2.51.0"
+GRAFANA_VERSION = getattr(settings, "GRAFANA_VERSION", "10.4.1")
+JMX_EXPORTER_VERSION = "0.20.0"
+JMX_EXPORTER_PORT = 7071
+
+
+class MonitoringDeployer:
+
+    @staticmethod
+    def deploy_monitoring_stack(cluster_id: str, monitoring_host_id: str,
+                                grafana_port: int, prometheus_port: int, db: Session) -> dict:
+        """Deploy Prometheus + Grafana on a host, JMX exporter on all brokers."""
+        cluster = db.query(Cluster).filter(Cluster.id == cluster_id).first()
+        if not cluster:
+            raise ValueError("Cluster not found")
+
+        mon_host = db.query(Host).filter(Host.id == monitoring_host_id).first()
+        if not mon_host:
+            raise ValueError("Monitoring host not found")
+
+        services = db.query(Service).filter(Service.cluster_id == cluster_id).all()
+        broker_hosts = []
+        for svc in services:
+            if "broker" in svc.role:
+                host = db.query(Host).filter(Host.id == svc.host_id).first()
+                if host:
+                    broker_hosts.append(host)
+
+        steps = []
+
+        # Step 1: Deploy JMX exporter on each broker
+        for host in broker_hosts:
+            try:
+                MonitoringDeployer._deploy_jmx_exporter(host)
+                steps.append({"step": f"JMX exporter on {host.hostname}", "status": "success"})
+            except Exception as e:
+                steps.append({"step": f"JMX exporter on {host.hostname}", "status": "failed", "error": str(e)})
+
+        # Step 2: Deploy Prometheus
+        try:
+            MonitoringDeployer._deploy_prometheus(mon_host, broker_hosts, prometheus_port)
+            steps.append({"step": "Prometheus", "status": "success"})
+        except Exception as e:
+            steps.append({"step": "Prometheus", "status": "failed", "error": str(e)})
+
+        # Step 3: Deploy Grafana
+        try:
+            MonitoringDeployer._deploy_grafana(mon_host, grafana_port, prometheus_port)
+            steps.append({"step": "Grafana", "status": "success"})
+        except Exception as e:
+            steps.append({"step": "Grafana", "status": "failed", "error": str(e)})
+
+        # Step 4: Provision dashboards
+        try:
+            time.sleep(5)  # Wait for Grafana to start
+            MonitoringDeployer._provision_dashboards(mon_host, grafana_port, prometheus_port)
+            steps.append({"step": "Dashboards", "status": "success"})
+        except Exception as e:
+            steps.append({"step": "Dashboards", "status": "failed", "error": str(e)})
+
+        # Save config
+        config = db.query(MonitoringConfig).filter(MonitoringConfig.cluster_id == cluster_id).first()
+        if not config:
+            from uuid import uuid4
+            config = MonitoringConfig(id=str(uuid4()), cluster_id=cluster_id)
+            db.add(config)
+
+        config.monitoring_host_id = monitoring_host_id
+        config.prometheus_port = prometheus_port
+        config.grafana_port = grafana_port
+        config.prometheus_url = f"http://{mon_host.ip_address}:{prometheus_port}"
+        config.grafana_url = f"http://{mon_host.ip_address}:{grafana_port}"
+        config.deployed = True
+        db.commit()
+
+        return {
+            "status": "completed",
+            "steps": steps,
+            "grafana_url": f"http://{mon_host.ip_address}:{grafana_port}",
+            "prometheus_url": f"http://{mon_host.ip_address}:{prometheus_port}",
+        }
+
+    @staticmethod
+    def _ssh_exec(host: Host, command: str, timeout: int = 60) -> tuple:
+        with SSHManager.connect(
+            host.ip_address, host.ssh_port, host.username,
+            host.auth_type, host.encrypted_credential,
+        ) as client:
+            return SSHManager.exec_command(client, command, timeout=timeout)
+
+    @staticmethod
+    def _deploy_jmx_exporter(host: Host):
+        """Deploy JMX Prometheus exporter on a Kafka broker."""
+        logger.info(f"Deploying JMX exporter on {host.hostname}")
+
+        jmx_config = """---
+lowercaseOutputName: true
+lowercaseOutputLabelNames: true
+rules:
+  - pattern: kafka.server<type=BrokerTopicMetrics, name=(.+)><>(\w+)
+    name: kafka_server_brokertopicmetrics_$1_$2
+    type: GAUGE
+  - pattern: kafka.server<type=ReplicaManager, name=(.+)><>(\w+)
+    name: kafka_server_replicamanager_$1_$2
+    type: GAUGE
+  - pattern: kafka.controller<type=KafkaController, name=(.+)><>(\w+)
+    name: kafka_controller_kafkacontroller_$1_$2
+    type: GAUGE
+  - pattern: kafka.network<type=RequestMetrics, name=(.+), request=(.+)><>(\w+)
+    name: kafka_network_requestmetrics_$1_$2_$3
+    type: GAUGE
+  - pattern: kafka.log<type=Log, name=Size, topic=(.+), partition=(.+)><>Value
+    name: kafka_log_size
+    labels:
+      topic: $1
+      partition: $2
+    type: GAUGE
+  - pattern: java.lang<type=Memory><HeapMemoryUsage>(\w+)
+    name: jvm_memory_heap_$1
+    type: GAUGE
+  - pattern: java.lang<type=GarbageCollector, name=(.+)><>CollectionCount
+    name: jvm_gc_collection_count
+    labels:
+      gc: $1
+    type: COUNTER
+"""
+        jmx_jar_url = f"https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/{JMX_EXPORTER_VERSION}/jmx_prometheus_javaagent-{JMX_EXPORTER_VERSION}.jar"
+
+        commands = f"""
+sudo mkdir -p /opt/jmx_exporter
+sudo bash -c 'cat > /opt/jmx_exporter/kafka.yml << "JMXEOF"
+{jmx_config}
+JMXEOF'
+
+# Download JMX exporter if not present
+if [ ! -f /opt/jmx_exporter/jmx_prometheus_javaagent.jar ]; then
+    sudo curl -sL "{jmx_jar_url}" -o /opt/jmx_exporter/jmx_prometheus_javaagent.jar
+fi
+
+# Add JMX exporter to Kafka service environment
+if ! grep -q "jmx_prometheus_javaagent" /etc/systemd/system/kafka.service 2>/dev/null; then
+    sudo sed -i '/\\[Service\\]/a Environment="KAFKA_OPTS=-javaagent:/opt/jmx_exporter/jmx_prometheus_javaagent.jar={JMX_EXPORTER_PORT}:/opt/jmx_exporter/kafka.yml"' /etc/systemd/system/kafka.service
+    sudo systemctl daemon-reload
+    sudo systemctl restart kafka
+fi
+echo "JMX_DONE"
+"""
+        exit_code, stdout, stderr = MonitoringDeployer._ssh_exec(host, commands, timeout=120)
+        if "JMX_DONE" not in stdout:
+            raise RuntimeError(f"JMX exporter deploy failed: {stderr}")
+
+    @staticmethod
+    def _deploy_prometheus(host: Host, broker_hosts: list, port: int):
+        """Deploy Prometheus on the monitoring host."""
+        logger.info(f"Deploying Prometheus on {host.hostname}")
+
+        targets = ", ".join([f'"{h.ip_address}:{JMX_EXPORTER_PORT}"' for h in broker_hosts])
+        node_targets = ", ".join([f'"{h.ip_address}:9100"' for h in broker_hosts])
+
+        prometheus_yml = f"""global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'kafka'
+    static_configs:
+      - targets: [{targets}]
+
+  - job_name: 'node'
+    static_configs:
+      - targets: [{node_targets}]
+"""
+
+        commands = f"""
+# Install Prometheus
+if ! command -v prometheus &>/dev/null && [ ! -f /opt/prometheus/prometheus ]; then
+    cd /tmp
+    curl -sL "https://github.com/prometheus/prometheus/releases/download/v{PROMETHEUS_VERSION}/prometheus-{PROMETHEUS_VERSION}.linux-amd64.tar.gz" -o prometheus.tar.gz
+    tar xzf prometheus.tar.gz
+    sudo mkdir -p /opt/prometheus /var/lib/prometheus
+    sudo cp prometheus-{PROMETHEUS_VERSION}.linux-amd64/prometheus /opt/prometheus/
+    sudo cp prometheus-{PROMETHEUS_VERSION}.linux-amd64/promtool /opt/prometheus/
+    rm -rf prometheus.tar.gz prometheus-{PROMETHEUS_VERSION}.linux-amd64
+fi
+
+# Write config
+sudo mkdir -p /etc/prometheus
+sudo bash -c 'cat > /etc/prometheus/prometheus.yml << "PROMEOF"
+{prometheus_yml}
+PROMEOF'
+
+# Create systemd service
+sudo bash -c 'cat > /etc/systemd/system/prometheus.service << "SVCEOF"
+[Unit]
+Description=Prometheus
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/opt/prometheus/prometheus --config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/var/lib/prometheus --web.listen-address=:{port} --storage.tsdb.retention.time=180d
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+SVCEOF'
+
+sudo systemctl daemon-reload
+sudo systemctl enable prometheus
+sudo systemctl restart prometheus
+sleep 2
+curl -sf http://localhost:{port}/-/healthy && echo "PROM_OK" || echo "PROM_FAIL"
+"""
+        exit_code, stdout, stderr = MonitoringDeployer._ssh_exec(host, commands, timeout=180)
+        if "PROM_OK" not in stdout:
+            raise RuntimeError(f"Prometheus deploy failed: {stderr}")
+
+    @staticmethod
+    def _deploy_grafana(host: Host, grafana_port: int, prometheus_port: int):
+        """Deploy Grafana on the monitoring host."""
+        logger.info(f"Deploying Grafana on {host.hostname}")
+
+        commands = f"""
+# Install Grafana
+if ! command -v grafana-server &>/dev/null; then
+    # Detect OS
+    if command -v apt-get &>/dev/null; then
+        sudo apt-get install -y adduser libfontconfig1 musl >/dev/null 2>&1
+        curl -sL "https://dl.grafana.com/oss/release/grafana_{GRAFANA_VERSION}_amd64.deb" -o /tmp/grafana.deb
+        sudo dpkg -i /tmp/grafana.deb >/dev/null 2>&1
+        rm -f /tmp/grafana.deb
+    else
+        curl -sL "https://dl.grafana.com/oss/release/grafana-{GRAFANA_VERSION}-1.x86_64.rpm" -o /tmp/grafana.rpm
+        sudo dnf install -y /tmp/grafana.rpm >/dev/null 2>&1 || sudo yum install -y /tmp/grafana.rpm >/dev/null 2>&1
+        rm -f /tmp/grafana.rpm
+    fi
+fi
+
+# Configure Grafana
+sudo bash -c 'cat > /etc/grafana/grafana.ini << "GRAFEOF"
+[server]
+http_port = {grafana_port}
+root_url = %(protocol)s://%(domain)s:{grafana_port}/
+serve_from_sub_path = false
+
+[security]
+allow_embedding = true
+admin_user = admin
+admin_password = admin
+
+[auth.anonymous]
+enabled = true
+org_role = Viewer
+
+[dashboards]
+default_home_dashboard_path = /var/lib/grafana/dashboards/kafka-overview.json
+
+[users]
+allow_sign_up = false
+GRAFEOF'
+
+# SELinux
+if command -v setsebool &>/dev/null; then
+    sudo setsebool -P httpd_can_network_connect 1 2>/dev/null || true
+fi
+
+sudo systemctl daemon-reload
+sudo systemctl enable grafana-server
+sudo systemctl restart grafana-server
+sleep 3
+curl -sf http://localhost:{grafana_port}/api/health && echo "GRAFANA_OK" || echo "GRAFANA_FAIL"
+"""
+        exit_code, stdout, stderr = MonitoringDeployer._ssh_exec(host, commands, timeout=180)
+        if "GRAFANA_OK" not in stdout:
+            raise RuntimeError(f"Grafana deploy failed: {stderr}")
+
+    @staticmethod
+    def _provision_dashboards(host: Host, grafana_port: int, prometheus_port: int):
+        """Add Prometheus data source and Kafka dashboards to Grafana."""
+        logger.info(f"Provisioning Grafana dashboards on {host.hostname}")
+
+        # Add Prometheus data source
+        ds_json = json.dumps({
+            "name": "Prometheus",
+            "type": "prometheus",
+            "url": f"http://localhost:{prometheus_port}",
+            "access": "proxy",
+            "isDefault": True,
+        })
+
+        # Kafka overview dashboard
+        dashboard_json = json.dumps({
+            "dashboard": {
+                "title": "Kafka Overview",
+                "tags": ["kafka"],
+                "timezone": "browser",
+                "panels": [
+                    {
+                        "title": "Messages In/sec",
+                        "type": "timeseries",
+                        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+                        "targets": [{"expr": "rate(kafka_server_brokertopicmetrics_messagesinpersec_count[5m])", "legendFormat": "{{instance}}"}],
+                        "datasource": "Prometheus",
+                    },
+                    {
+                        "title": "Bytes In/sec",
+                        "type": "timeseries",
+                        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+                        "targets": [{"expr": "rate(kafka_server_brokertopicmetrics_bytesinpersec_count[5m])", "legendFormat": "{{instance}}"}],
+                        "datasource": "Prometheus",
+                    },
+                    {
+                        "title": "Under-Replicated Partitions",
+                        "type": "stat",
+                        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 8},
+                        "targets": [{"expr": "kafka_server_replicamanager_underreplicatedpartitions_value", "legendFormat": "{{instance}}"}],
+                        "datasource": "Prometheus",
+                    },
+                    {
+                        "title": "Active Controller",
+                        "type": "stat",
+                        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 8},
+                        "targets": [{"expr": "kafka_controller_kafkacontroller_activecontrollercount_value", "legendFormat": "{{instance}}"}],
+                        "datasource": "Prometheus",
+                    },
+                    {
+                        "title": "JVM Heap Used",
+                        "type": "timeseries",
+                        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+                        "targets": [{"expr": "jvm_memory_heap_used / 1024 / 1024", "legendFormat": "{{instance}} MB"}],
+                        "datasource": "Prometheus",
+                    },
+                    {
+                        "title": "GC Count",
+                        "type": "timeseries",
+                        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+                        "targets": [{"expr": "rate(jvm_gc_collection_count[5m])", "legendFormat": "{{instance}} {{gc}}"}],
+                        "datasource": "Prometheus",
+                    },
+                ],
+                "time": {"from": "now-1h", "to": "now"},
+                "refresh": "30s",
+            },
+            "overwrite": True,
+        })
+
+        commands = f"""
+# Add Prometheus data source
+curl -sf -X POST http://admin:admin@localhost:{grafana_port}/api/datasources \
+  -H "Content-Type: application/json" \
+  -d '{ds_json}' 2>/dev/null || true
+
+# Create Kafka Overview dashboard
+curl -sf -X POST http://admin:admin@localhost:{grafana_port}/api/dashboards/db \
+  -H "Content-Type: application/json" \
+  -d '{dashboard_json}' 2>/dev/null
+
+echo "DASHBOARDS_OK"
+"""
+        exit_code, stdout, stderr = MonitoringDeployer._ssh_exec(host, commands, timeout=30)
+        if "DASHBOARDS_OK" not in stdout:
+            raise RuntimeError(f"Dashboard provisioning failed: {stderr}")
+
+    @staticmethod
+    def get_grafana_info(cluster_id: str, db: Session) -> dict:
+        """Get Grafana connection info for a cluster."""
+        config = db.query(MonitoringConfig).filter(MonitoringConfig.cluster_id == cluster_id).first()
+        if not config or not config.deployed:
+            return {"deployed": False}
+
+        return {
+            "deployed": True,
+            "grafana_url": config.grafana_url,
+            "prometheus_url": config.prometheus_url,
+            "grafana_port": config.grafana_port,
+            "prometheus_port": config.prometheus_port,
+        }

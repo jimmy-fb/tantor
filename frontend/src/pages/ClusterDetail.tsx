@@ -4,7 +4,7 @@ import {
   Play, Square, RefreshCw, Rocket, Loader2,
   List, Users, Send, Plug, Monitor, ScrollText, Download, Shield,
   ShieldCheck, PlusCircle, Trash2, AlertTriangle, CheckCircle, XCircle, Database,
-  Settings, RotateCw, ArrowUpCircle,
+  Settings, RotateCw, ArrowUpCircle, Shuffle,
 } from 'lucide-react';
 import type { ClusterDetail as ClusterDetailType, ServiceStatus, ValidationStep, Host } from '../types';
 import {
@@ -24,6 +24,7 @@ import ServiceLogs from '../components/clusters/ServiceLogs';
 import BrokerConfigManager from '../components/clusters/BrokerConfigManager';
 import RollingRestart from '../components/clusters/RollingRestart';
 import UpgradeManager from '../components/clusters/UpgradeManager';
+import PartitionRebalance from '../components/clusters/PartitionRebalance';
 
 const ROLE_LABELS: Record<string, string> = {
   broker: 'Broker',
@@ -51,7 +52,7 @@ const ROLES = [
   { id: 'kafka_connect', label: 'Kafka Connect' },
 ];
 
-type Tab = 'overview' | 'topics' | 'consumers' | 'produce' | 'consume' | 'connect' | 'security' | 'ksqldb' | 'validate' | 'logs' | 'service-logs' | 'config' | 'restart' | 'upgrade';
+type Tab = 'overview' | 'topics' | 'consumers' | 'produce' | 'consume' | 'connect' | 'security' | 'ksqldb' | 'validate' | 'logs' | 'service-logs' | 'config' | 'restart' | 'upgrade' | 'rebalance';
 
 export default function ClusterDetail() {
   const { id } = useParams<{ id: string }>();
@@ -205,6 +206,7 @@ export default function ClusterDetail() {
     { id: 'security', label: 'Security', icon: <Shield size={14} />, requiresRunning: true },
     { id: 'validate', label: 'Validate', icon: <ShieldCheck size={14} />, requiresRunning: true },
     { id: 'config', label: 'Config', icon: <Settings size={14} />, requiresRunning: true },
+    { id: 'rebalance', label: 'Rebalance', icon: <Shuffle size={14} />, requiresRunning: true },
     { id: 'restart', label: 'Restart', icon: <RotateCw size={14} />, requiresRunning: true },
     { id: 'upgrade', label: 'Upgrade', icon: <ArrowUpCircle size={14} /> },
     { id: 'service-logs', label: 'Service Logs', icon: <ScrollText size={14} />, requiresRunning: true },
@@ -434,6 +436,7 @@ export default function ClusterDetail() {
       {activeTab === 'ksqldb' && id && <KsqlManager clusterId={id} />}
       {activeTab === 'config' && id && <BrokerConfigManager clusterId={id} />}
       {activeTab === 'restart' && id && <RollingRestart clusterId={id} />}
+      {activeTab === 'rebalance' && id && <PartitionRebalance clusterId={id} />}
       {activeTab === 'upgrade' && id && <UpgradeManager clusterId={id} currentVersion={cluster.kafka_version} />}
 
       {activeTab === 'validate' && id && (

@@ -3,10 +3,13 @@ from datetime import datetime, timedelta, timezone
 
 import bcrypt
 import jwt
+from cryptography.fernet import Fernet
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models.user import User
+from app.models.ldap_config import LdapConfig
+from app.services.ldap_service import LdapService
 
 logger = logging.getLogger("tantor.auth")
 
@@ -46,8 +49,62 @@ class AuthService:
         return jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=["HS256"])
 
     @staticmethod
+    def authenticate_ldap(username: str, password: str, db: Session) -> User | None:
+        """Try to authenticate via LDAP. Returns User or None."""
+        ldap_config = db.query(LdapConfig).first()
+        if not ldap_config or not ldap_config.enabled:
+            return None
+
+        # Decrypt bind password
+        try:
+            fernet = Fernet(settings.FERNET_KEY.encode())
+            bind_password = fernet.decrypt(ldap_config.encrypted_bind_password.encode()).decode()
+        except Exception:
+            logger.error("Failed to decrypt LDAP bind password")
+            return None
+
+        result = LdapService.authenticate(username, password, ldap_config, bind_password)
+        if not result:
+            return None
+
+        # Determine role from group membership
+        role = LdapService.determine_role(result.get("groups", []), ldap_config)
+
+        # Find or create local user record
+        user = db.query(User).filter(User.username == username).first()
+        if user:
+            # Update role from LDAP groups and mark as LDAP user
+            user.role = role
+            user.auth_source = "ldap"
+            user.last_login = datetime.now(timezone.utc)
+            db.commit()
+            return user
+        else:
+            # Create new user from LDAP
+            user = User(
+                username=username,
+                hashed_password="LDAP_AUTH",  # placeholder, not used for LDAP users
+                role=role,
+                auth_source="ldap",
+                last_login=datetime.now(timezone.utc),
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+            return user
+
+    @staticmethod
     def authenticate(username: str, password: str, db: Session) -> User | None:
+        # Try LDAP first
+        ldap_user = AuthService.authenticate_ldap(username, password, db)
+        if ldap_user:
+            return ldap_user
+
+        # Fall back to local authentication
         user = db.query(User).filter(User.username == username, User.is_active == True).first()  # noqa: E712
+        if user and user.auth_source == "ldap":
+            # LDAP users should not authenticate locally
+            return None
         if user and AuthService.verify_password(password, user.hashed_password):
             user.last_login = datetime.now(timezone.utc)
             db.commit()

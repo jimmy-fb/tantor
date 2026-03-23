@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { BarChart3, Cpu, HardDrive, Activity, RefreshCw, Server, Wifi, Database, Clock, MemoryStick } from 'lucide-react';
 import { getClusters, getClusterMetrics } from '../lib/api';
 import type { Cluster } from '../types';
+import GrafanaDashboards from '../components/monitoring/GrafanaDashboards';
 
 interface NodeMetrics {
   host_id: string;
@@ -84,6 +85,7 @@ export default function Monitoring() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(false);
+  const [viewMode, setViewMode] = useState<'builtin' | 'grafana'>('builtin');
 
   useEffect(() => {
     getClusters().then((data: Cluster[]) => {
@@ -179,8 +181,33 @@ export default function Monitoring() {
         </div>
       </div>
 
-      {/* Nodes */}
-      {metrics?.nodes.map(node => (
+      {/* View Mode Toggle */}
+      <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit">
+        <button
+          onClick={() => setViewMode('builtin')}
+          className={`px-4 py-1.5 text-sm rounded-md transition-colors ${
+            viewMode === 'builtin' ? 'bg-white shadow text-gray-900 font-medium' : 'text-gray-600 hover:text-gray-800'
+          }`}
+        >
+          Built-in Metrics
+        </button>
+        <button
+          onClick={() => setViewMode('grafana')}
+          className={`px-4 py-1.5 text-sm rounded-md transition-colors ${
+            viewMode === 'grafana' ? 'bg-white shadow text-gray-900 font-medium' : 'text-gray-600 hover:text-gray-800'
+          }`}
+        >
+          Grafana Dashboards
+        </button>
+      </div>
+
+      {/* Grafana View */}
+      {viewMode === 'grafana' && selectedCluster && (
+        <GrafanaDashboards clusterId={selectedCluster} />
+      )}
+
+      {/* Built-in Nodes View */}
+      {viewMode === 'builtin' && metrics?.nodes.map(node => (
         <div key={node.host_id} className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
           {/* Node Header */}
           <div className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">

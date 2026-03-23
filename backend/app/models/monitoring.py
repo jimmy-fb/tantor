@@ -11,6 +11,9 @@ class MonitoringConfig(Base):
     __tablename__ = "monitoring_config"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    cluster_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    monitoring_host_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    deployed: Mapped[bool] = mapped_column(Boolean, default=False)
     prometheus_installed: Mapped[bool] = mapped_column(Boolean, default=False)
     grafana_installed: Mapped[bool] = mapped_column(Boolean, default=False)
     prometheus_port: Mapped[int] = mapped_column(Integer, default=9090)

@@ -10,7 +10,7 @@ from app.database import Base, engine, SessionLocal
 from app.api import (
     hosts, clusters, ws, versions, topics, kafka_connect, security, ksqldb,
     auth, logs, monitoring, broker_config, rolling_restart, kafka_ui,
-    upgrades, security_scan, cluster_linking,
+    upgrades, security_scan, cluster_linking, rebalance, ldap,
 )
 from app.models.kafka_user import KafkaUser  # noqa: F401 - ensure table creation
 from app.models.audit_log import AuditLog  # noqa: F401 - ensure table creation
@@ -20,6 +20,7 @@ from app.models.monitoring import MonitoringConfig  # noqa: F401 - ensure table 
 from app.models.config_audit import ConfigAuditLog  # noqa: F401 - ensure table creation
 from app.models.kafka_ui_config import KafkaUIConfig  # noqa: F401 - ensure table creation
 from app.models.cluster_link import ClusterLink  # noqa: F401 - ensure table creation
+from app.models.ldap_config import LdapConfig  # noqa: F401 - ensure table creation
 from app.services.auth_service import AuthService
 
 APP_VERSION = "1.0.0"
@@ -88,6 +89,8 @@ app.include_router(kafka_ui.router)
 app.include_router(upgrades.router)
 app.include_router(security_scan.router)
 app.include_router(cluster_linking.router)
+app.include_router(rebalance.router)
+app.include_router(ldap.router)
 
 
 @app.get("/api/health")
