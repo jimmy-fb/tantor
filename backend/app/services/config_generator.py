@@ -103,13 +103,31 @@ class ConfigGenerator:
         )
 
     @staticmethod
-    def generate_systemd_unit(service_type: str, config_path: str, kafka_home: str = "/opt/kafka", ksqldb_home: str = "/opt/ksqldb") -> str:
-        """Generate a systemd unit file for a Kafka service."""
+    def generate_systemd_unit(
+        service_type: str,
+        config_path: str,
+        kafka_home: str = "/opt/kafka",
+        ksqldb_home: str = "/opt/ksqldb",
+        heap_opts: str = "",
+        java_home: str = "",
+    ) -> str:
+        """Generate a systemd unit file for a Kafka service.
+
+        java_home is discovered at deploy time by the Ansible playbook.
+        We use a placeholder that gets replaced during deployment, or
+        a safe fallback that works on most systems.
+        """
+        if not java_home:
+            # Use a safe default that works on both Debian and RHEL
+            # The playbook will override this with the actual discovered path
+            java_home = "/usr"  # /usr/bin/java exists on all systems with java installed
         template = env.get_template(f"systemd/{service_type}.service.j2")
         return template.render(
             kafka_home=kafka_home,
             ksqldb_home=ksqldb_home,
             config_path=config_path,
+            java_home=java_home,
+            heap_opts=heap_opts,
         )
 
     @staticmethod

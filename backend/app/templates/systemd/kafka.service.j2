@@ -1,18 +1,27 @@
 [Unit]
 Description=Apache Kafka Broker
 After=network.target
+Documentation=https://kafka.apache.org/documentation/
 
 [Service]
 Type=simple
 User=kafka
 Group=kafka
-Environment="KAFKA_HEAP_OPTS=-Xmx1G -Xms1G"
+Environment="JAVA_HOME={{ java_home }}"
+Environment="KAFKA_HEAP_OPTS={{ heap_opts | default('-Xmx1G -Xms1G') }}"
 Environment="KAFKA_LOG4J_OPTS=-Dlog4j.configuration=file:{{ kafka_home }}/config/log4j.properties"
+Environment="LOG_DIR=/var/log/kafka"
+ExecStartPre=/bin/bash -c 'test -x {{ java_home }}/bin/java || (echo "JAVA_HOME invalid: {{ java_home }}" && exit 1)'
 ExecStart={{ kafka_home }}/bin/kafka-server-start.sh {{ config_path }}
 ExecStop={{ kafka_home }}/bin/kafka-server-stop.sh
 Restart=on-failure
 RestartSec=10
+TimeoutStopSec=60
 LimitNOFILE=100000
+LimitNPROC=8192
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=kafka
 
 [Install]
 WantedBy=multi-user.target

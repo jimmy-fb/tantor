@@ -6,12 +6,18 @@ After=network.target kafka.service
 Type=simple
 User=kafka
 Group=kafka
-Environment="KSQL_HEAP_OPTS=-Xmx512M -Xms512M"
+Environment="JAVA_HOME={{ java_home }}"
+Environment="KSQL_HEAP_OPTS={{ heap_opts | default('-Xmx512M -Xms512M') }}"
 Environment="KSQL_LOG4J_OPTS=-Dlog4j.configuration=file:{{ ksqldb_home }}/etc/ksqldb/log4j-rolling.properties"
+ExecStartPre=/bin/bash -c 'test -x {{ java_home }}/bin/java || (echo "JAVA_HOME invalid: {{ java_home }}" && exit 1)'
 ExecStart={{ ksqldb_home }}/bin/ksql-server-start {{ config_path }}
 Restart=on-failure
 RestartSec=10
+TimeoutStopSec=60
 LimitNOFILE=100000
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ksqldb
 
 [Install]
 WantedBy=multi-user.target

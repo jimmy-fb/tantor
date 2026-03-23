@@ -1,4 +1,12 @@
 ---
+# =============================================================================
+# Tantor Kafka Deployment Playbook (Production-Ready)
+# - Validates Java, discovers JAVA_HOME
+# - Cleans stale services before deploying
+# - Validates meta.properties node_id consistency
+# - Health checks after each service start
+# =============================================================================
+
 - name: Prepare Kafka on all hosts
   hosts: all
   become: true
@@ -8,7 +16,10 @@
         gather_subset:
           - '!all'
           - 'os_family'
+          - 'distribution'
+          - 'distribution_major_version'
 
+    # ── Java Installation ──────────────────────────────────────────────
     - name: Install Java (Debian/Ubuntu)
       apt:
         name: openjdk-17-jre-headless
@@ -22,6 +33,65 @@
         state: present
       when: ansible_os_family == "RedHat"
 
+    # ── Discover real JAVA_HOME (critical: don't trust env vars) ─────
+    - name: Find java binary path
+      command: which java
+      register: java_which
+      changed_when: false
+
+    - name: Resolve java symlink to real path
+      command: readlink -f {{ '{{' }} java_which.stdout {{ '}}' }}
+      register: java_real
+      changed_when: false
+
+    - name: Set JAVA_HOME fact
+      set_fact:
+        discovered_java_home: "{{ '{{' }} java_real.stdout | regex_replace('/bin/java$', '') {{ '}}' }}"
+
+    - name: Validate Java works
+      command: "{{ '{{' }} discovered_java_home {{ '}}' }}/bin/java -version"
+      register: java_ver
+      changed_when: false
+      failed_when: java_ver.rc != 0
+
+    - name: Display Java info
+      debug:
+        msg: "JAVA_HOME={{ '{{' }} discovered_java_home {{ '}}' }} | {{ '{{' }} java_ver.stderr_lines[0] | default('unknown') {{ '}}' }}"
+
+    - name: Fix /etc/profile.d/java.sh
+      copy:
+        content: |
+          export JAVA_HOME={{ '{{' }} discovered_java_home {{ '}}' }}
+          export PATH=$JAVA_HOME/bin:$PATH
+        dest: /etc/profile.d/java.sh
+        mode: "0644"
+
+    # ── Cleanup stale Kafka services ─────────────────────────────────
+    - name: Find all existing kafka systemd units
+      find:
+        paths: /etc/systemd/system
+        patterns: "kafka*.service"
+      register: existing_kafka_services
+
+    - name: Stop and disable stale Kafka services
+      systemd:
+        name: "{{ '{{' }} item.path | basename {{ '}}' }}"
+        state: stopped
+        enabled: false
+      loop: "{{ '{{' }} existing_kafka_services.files {{ '}}' }}"
+      ignore_errors: true
+
+    - name: Remove stale Kafka service files
+      file:
+        path: "{{ '{{' }} item.path {{ '}}' }}"
+        state: absent
+      loop: "{{ '{{' }} existing_kafka_services.files {{ '}}' }}"
+
+    - name: Reload systemd after cleanup
+      systemd:
+        daemon_reload: true
+
+    # ── Create user and directories ──────────────────────────────────
     - name: Create kafka group
       group:
         name: kafka
@@ -46,8 +116,10 @@
       loop:
         - "{{ kafka_data_dir }}"
         - "{{ kafka_log_dir }}"
+        - /var/log/kafka
         - /opt
 
+    # ── Deploy Kafka binary ──────────────────────────────────────────
     - name: Copy Kafka binary from Tantor server
       copy:
         src: "{{ kafka_binary_local_path }}"
@@ -84,7 +156,16 @@
         path: "/tmp/{{ kafka_binary_filename }}"
         state: absent
 
+    # ── Configure SELinux (RHEL only) ────────────────────────────────
+    - name: Allow Kafka through SELinux
+      command: setsebool -P domain_can_mmap_files 1
+      when: ansible_os_family == "RedHat"
+      ignore_errors: true
+
 {% if has_brokers %}
+# =============================================================================
+# Brokers (including combined broker+controller)
+# =============================================================================
 - name: Configure and start Kafka brokers
   hosts: brokers:broker_controllers
   become: true
@@ -98,6 +179,57 @@
         group: kafka
         mode: "0644"
 
+    # ── Validate node_id vs meta.properties ────────────────────────
+    - name: Check if meta.properties exists
+      stat:
+        path: "{{ kafka_data_dir }}/meta.properties"
+      register: meta_props
+
+    - name: Read existing node.id from meta.properties
+      command: grep '^node.id=' {{ kafka_data_dir }}/meta.properties
+      register: existing_node_id
+      when: meta_props.stat.exists
+      changed_when: false
+      ignore_errors: true
+
+    - name: Read configured node.id from server.properties
+      command: grep '^node.id=' {{ kafka_install_dir }}/config/server.properties
+      register: config_node_id
+      changed_when: false
+
+    - name: Warn on node_id mismatch — clearing old data
+      debug:
+        msg: >
+          NODE ID MISMATCH: meta.properties has {{ '{{' }} existing_node_id.stdout | default('none') {{ '}}' }}
+          but config has {{ '{{' }} config_node_id.stdout {{ '}}' }}.
+          Clearing old Kafka data to resolve.
+      when:
+        - meta_props.stat.exists
+        - existing_node_id.stdout is defined
+        - existing_node_id.stdout != config_node_id.stdout
+
+    - name: Clear stale Kafka data on node_id mismatch
+      file:
+        path: "{{ kafka_data_dir }}"
+        state: absent
+      when:
+        - meta_props.stat.exists
+        - existing_node_id.stdout is defined
+        - existing_node_id.stdout != config_node_id.stdout
+
+    - name: Recreate data directory after cleanup
+      file:
+        path: "{{ kafka_data_dir }}"
+        state: directory
+        owner: kafka
+        group: kafka
+        mode: "0755"
+      when:
+        - meta_props.stat.exists
+        - existing_node_id.stdout is defined
+        - existing_node_id.stdout != config_node_id.stdout
+
+    # ── Upload systemd unit with JAVA_HOME ─────────────────────────
     - name: Upload systemd unit
       copy:
         src: "{{ systemd_dir }}/{{ '{{' }} ansible_host {{ '}}' }}_{{ '{{' }} node_id {{ '}}' }}_kafka.service"
@@ -116,6 +248,8 @@
         -c {{ kafka_install_dir }}/config/server.properties
         --ignore-formatted
       become_user: kafka
+      environment:
+        JAVA_HOME: "{{ '{{' }} discovered_java_home {{ '}}' }}"
 {% endif %}
 
     - name: Enable and start Kafka
@@ -123,9 +257,26 @@
         name: kafka
         enabled: true
         state: started
+
+    # ── Health check: wait for Kafka to be ready ───────────────────
+    - name: Wait for Kafka to start listening
+      wait_for:
+        port: {{ cluster_config.get('listener_port', 9092) }}
+        host: "{{ '{{' }} ansible_host {{ '}}' }}"
+        timeout: 60
+        delay: 5
+
+    - name: Verify Kafka process is running
+      command: systemctl is-active kafka
+      register: kafka_status
+      changed_when: false
+      failed_when: kafka_status.stdout != "active"
 {% endif %}
 
 {% if has_controllers %}
+# =============================================================================
+# Standalone KRaft Controllers
+# =============================================================================
 - name: Configure and start KRaft controllers
   hosts: controllers
   become: true
@@ -138,6 +289,45 @@
         owner: kafka
         group: kafka
         mode: "0644"
+
+    # ── Validate node_id vs meta.properties ────────────────────────
+    - name: Check if meta.properties exists
+      stat:
+        path: "{{ kafka_data_dir }}/meta.properties"
+      register: meta_props
+
+    - name: Read existing node.id from meta.properties
+      command: grep '^node.id=' {{ kafka_data_dir }}/meta.properties
+      register: existing_node_id
+      when: meta_props.stat.exists
+      changed_when: false
+      ignore_errors: true
+
+    - name: Read configured node.id from server.properties
+      command: grep '^node.id=' {{ kafka_install_dir }}/config/server.properties
+      register: config_node_id
+      changed_when: false
+
+    - name: Clear stale data on node_id mismatch
+      file:
+        path: "{{ kafka_data_dir }}"
+        state: absent
+      when:
+        - meta_props.stat.exists
+        - existing_node_id.stdout is defined
+        - existing_node_id.stdout != config_node_id.stdout
+
+    - name: Recreate data directory after cleanup
+      file:
+        path: "{{ kafka_data_dir }}"
+        state: directory
+        owner: kafka
+        group: kafka
+        mode: "0755"
+      when:
+        - meta_props.stat.exists
+        - existing_node_id.stdout is defined
+        - existing_node_id.stdout != config_node_id.stdout
 
     - name: Upload systemd unit
       copy:
@@ -156,15 +346,33 @@
         -c {{ kafka_install_dir }}/config/server.properties
         --ignore-formatted
       become_user: kafka
+      environment:
+        JAVA_HOME: "{{ '{{' }} discovered_java_home {{ '}}' }}"
 
     - name: Enable and start controller
       systemd:
         name: kafka-kraft-controller
         enabled: true
         state: started
+
+    - name: Wait for controller to start listening
+      wait_for:
+        port: {{ cluster_config.get('controller_port', 9093) }}
+        host: "{{ '{{' }} ansible_host {{ '}}' }}"
+        timeout: 60
+        delay: 5
+
+    - name: Verify controller process is running
+      command: systemctl is-active kafka-kraft-controller
+      register: ctrl_status
+      changed_when: false
+      failed_when: ctrl_status.stdout != "active"
 {% endif %}
 
 {% if has_ksqldb %}
+# =============================================================================
+# ksqlDB
+# =============================================================================
 - name: Install and start ksqlDB
   hosts: ksqldbs
   become: true
@@ -235,6 +443,9 @@
 {% endif %}
 
 {% if has_connect %}
+# =============================================================================
+# Kafka Connect
+# =============================================================================
 - name: Configure and start Kafka Connect
   hosts: kafka_connects
   become: true

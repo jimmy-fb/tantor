@@ -1,17 +1,26 @@
 [Unit]
 Description=Apache Kafka KRaft Controller
 After=network.target
+Documentation=https://kafka.apache.org/documentation/
 
 [Service]
 Type=simple
 User=kafka
 Group=kafka
-Environment="KAFKA_HEAP_OPTS=-Xmx512M -Xms512M"
+Environment="JAVA_HOME={{ java_home }}"
+Environment="KAFKA_HEAP_OPTS={{ heap_opts | default('-Xmx512M -Xms512M') }}"
+Environment="LOG_DIR=/var/log/kafka"
+ExecStartPre=/bin/bash -c 'test -x {{ java_home }}/bin/java || (echo "JAVA_HOME invalid: {{ java_home }}" && exit 1)'
 ExecStart={{ kafka_home }}/bin/kafka-server-start.sh {{ config_path }}
 ExecStop={{ kafka_home }}/bin/kafka-server-stop.sh
 Restart=on-failure
 RestartSec=10
+TimeoutStopSec=60
 LimitNOFILE=100000
+LimitNPROC=8192
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=kafka-controller
 
 [Install]
 WantedBy=multi-user.target

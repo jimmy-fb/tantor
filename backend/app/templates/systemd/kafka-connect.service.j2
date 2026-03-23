@@ -6,11 +6,17 @@ After=network.target kafka.service
 Type=simple
 User=kafka
 Group=kafka
-Environment="KAFKA_HEAP_OPTS=-Xmx1G -Xms1G"
+Environment="JAVA_HOME={{ java_home }}"
+Environment="KAFKA_HEAP_OPTS={{ heap_opts | default('-Xmx1G -Xms1G') }}"
+ExecStartPre=/bin/bash -c 'test -x {{ java_home }}/bin/java || (echo "JAVA_HOME invalid: {{ java_home }}" && exit 1)'
 ExecStart={{ kafka_home }}/bin/connect-distributed.sh {{ config_path }}
 Restart=on-failure
 RestartSec=10
+TimeoutStopSec=60
 LimitNOFILE=100000
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=kafka-connect
 
 [Install]
 WantedBy=multi-user.target

@@ -68,6 +68,49 @@ def deploy_cluster(cluster_id: str, task_id: str, db: Session):
     hosts = {h.id: h for h in db.query(Host).all()}
     cluster_config = json.loads(cluster.config_json) if cluster.config_json else {}
 
+    # ── Pre-flight validation ──────────────────────────────────────
+    _log(task_id, "Running pre-flight checks...")
+
+    # Check 1: Node IDs must be unique within the cluster
+    node_ids = [svc.node_id for svc in services]
+    if len(node_ids) != len(set(node_ids)):
+        _log(task_id, f"ERROR: Duplicate node_ids detected: {node_ids}")
+        _deployment_tasks[task_id]["status"] = "error"
+        cluster.state = "error"
+        db.commit()
+        return
+
+    # Check 2: All hosts must exist and be reachable
+    for svc in services:
+        host = hosts.get(svc.host_id)
+        if not host:
+            _log(task_id, f"ERROR: Host {svc.host_id} not found for service {svc.role}")
+            _deployment_tasks[task_id]["status"] = "error"
+            cluster.state = "error"
+            db.commit()
+            return
+        if host.status != "online":
+            _log(task_id, f"WARNING: Host {host.hostname} ({host.ip_address}) status is '{host.status}', not 'online'")
+
+    # Check 3: KRaft mode needs at least one controller
+    if cluster.mode == "kraft":
+        controller_roles = {svc.role for svc in services} & {"controller", "broker_controller"}
+        if not controller_roles:
+            _log(task_id, "ERROR: KRaft mode requires at least one controller or broker_controller role")
+            _deployment_tasks[task_id]["status"] = "error"
+            cluster.state = "error"
+            db.commit()
+            return
+
+    # Check 4: Replication factor can't exceed broker count
+    broker_count = sum(1 for svc in services if svc.role in ("broker", "broker_controller"))
+    rf = cluster_config.get("replication_factor", 3)
+    if rf > broker_count:
+        _log(task_id, f"WARNING: replication_factor={rf} exceeds broker count={broker_count}. Adjusting to {broker_count}.")
+        cluster_config["replication_factor"] = broker_count
+
+    _log(task_id, f"Pre-flight checks passed: {len(services)} services, {broker_count} brokers, RF={cluster_config.get('replication_factor', 1)}")
+
     all_service_infos = []
     for svc in services:
         host = hosts.get(svc.host_id)
@@ -246,6 +289,7 @@ def _run_ansible_deployment(
         "kafka_log_dir": settings.KAFKA_LOG_DIR,
         "cluster_uuid": cluster_uuid,
         "cluster_mode": cluster.mode,
+        "cluster_config": cluster_config,
         "configs_dir": str(configs_dir),
         "systemd_dir": str(systemd_dir),
         "has_brokers": has_brokers,
