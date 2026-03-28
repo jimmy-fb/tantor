@@ -26,7 +26,7 @@ export default function Sidebar() {
     { to: '/clusters/new', icon: Plus, label: 'New Cluster', adminOnly: true },
     { to: '/versions', icon: Package, label: 'Kafka Versions' },
     { to: '/monitoring', icon: BarChart3, label: 'Monitoring' },
-    { to: '/kafka-explorer', icon: Globe, label: 'Data Explorer' },
+    { to: '/kafka-explorer', icon: Globe, label: 'Kafka UI' },
     { to: '/security-scan', icon: Shield, label: 'Security Scan' },
     { to: '/cluster-linking', icon: Link2, label: 'Cluster Linking' },
     ...(admin ? [
@@ -36,7 +36,7 @@ export default function Sidebar() {
   ];
 
   return (
-    <aside className="w-64 bg-gray-900 text-white flex flex-col min-h-screen">
+    <aside className="w-64 bg-gray-900 text-white flex flex-col h-screen overflow-y-auto">
       <div className="p-6 border-b border-gray-800">
         <img src="/tantor-logo.png" alt="Tantor" className="h-8" />
         <p className="text-xs text-gray-400 mt-1">Kafka Cluster Manager</p>

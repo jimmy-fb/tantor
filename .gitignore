@@ -15,6 +15,7 @@ qualys-vapt/config/qualys-config.env
 openvas-vapt/reports/
 backend/repo/kafka/*.tgz
 backend/repo/ksqldb/*.tgz
+backend/repo/kafka-ui/*.jar
 *.tgz
 tantor-*.tar.gz
 .secrets/

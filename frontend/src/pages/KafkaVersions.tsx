@@ -60,18 +60,26 @@ export default function KafkaVersions() {
           {uploadMsg && (
             <span className={`text-sm ${uploadMsg.ok ? 'text-green-600' : 'text-red-600'}`}>{uploadMsg.text}</span>
           )}
-          <label className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 cursor-pointer">
-            {uploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-            Upload Binary
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".tgz,.tar.gz"
-              className="hidden"
-              onChange={handleUpload}
-              disabled={uploading}
-            />
-          </label>
+          <div className="relative group">
+            <label className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 cursor-pointer">
+              {uploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+              Upload Binary
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".tgz,.tar.gz"
+                className="hidden"
+                onChange={handleUpload}
+                disabled={uploading}
+              />
+            </label>
+            <div className="absolute right-0 top-full mt-2 w-72 bg-gray-900 text-gray-200 text-xs rounded-lg p-3 shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+              <p className="font-medium text-white mb-1">Supported Format</p>
+              <p>Upload a <code className="text-blue-300">.tgz</code> Kafka binary archive.</p>
+              <p className="mt-1">Filename pattern: <code className="text-blue-300">kafka_2.13-3.7.0.tgz</code></p>
+              <p className="mt-1 text-gray-400">Compatible versions: 3.x and 4.x. Download from the official Apache Kafka releases page.</p>
+            </div>
+          </div>
         </div>
       </div>
 

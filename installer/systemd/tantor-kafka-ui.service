@@ -1,0 +1,20 @@
+[Unit]
+Description=Tantor Kafka UI (kafbat-ui)
+After=network.target tantor-backend.service
+Wants=tantor-backend.service
+
+[Service]
+Type=simple
+User=tantor
+Group=tantor
+WorkingDirectory=/opt/tantor/kafka-ui
+ExecStart=/usr/bin/java --add-opens java.rmi/javax.rmi.ssl=ALL-UNNAMED -jar /opt/tantor/kafka-ui/kafka-ui.jar --spring.config.additional-location=/opt/tantor/kafka-ui/config.yml
+Restart=on-failure
+RestartSec=10
+StandardOutput=append:/var/log/tantor/kafka-ui/stdout.log
+StandardError=append:/var/log/tantor/kafka-ui/stderr.log
+LimitNOFILE=65536
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

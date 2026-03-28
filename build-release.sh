@@ -74,6 +74,8 @@ chmod +x "$BUILD_DIR/bin/tantorctl"
 # Copy supervisor config if exists (for Docker mode)
 [ -f "$SCRIPT_DIR/installer/config/supervisord.conf" ] && \
   cp "$SCRIPT_DIR/installer/config/supervisord.conf" "$BUILD_DIR/config/"
+  cp "$SCRIPT_DIR/installer/config/kafka-ui-config.yml" "$BUILD_DIR/config/" 2>/dev/null || true
+  cp "$SCRIPT_DIR/installer/systemd/tantor-kafka-ui.service" "$BUILD_DIR/systemd/" 2>/dev/null || true
 
 echo -e "${GREEN}✓ Installer configs packaged${NC}"
 
@@ -87,6 +89,20 @@ if [ -f "$KAFKA_BINARY" ]; then
     echo -e "${GREEN}✓ Kafka 3.7.0 binary bundled (${KAFKA_SIZE})${NC}"
 else
     echo -e "${YELLOW}⚠ Kafka binary not found at $KAFKA_BINARY${NC}"
+    echo -e "${YELLOW}  The installer will auto-download it during install.${NC}"
+fi
+
+# ─── Step 4c: Bundle Kafka UI JAR ───
+echo -e "${BLUE}▶ Step 4c/6: Bundling Kafka UI jar...${NC}"
+KAFKA_UI_VERSION="1.4.2"
+KAFKA_UI_JAR="$SCRIPT_DIR/backend/repo/kafka-ui/api-v${KAFKA_UI_VERSION}.jar"
+mkdir -p "$BUILD_DIR/repo/kafka-ui"
+if [ -f "$KAFKA_UI_JAR" ]; then
+    cp "$KAFKA_UI_JAR" "$BUILD_DIR/repo/kafka-ui/"
+    KUI_SIZE=$(du -sh "$KAFKA_UI_JAR" | awk '{print $1}')
+    echo -e "${GREEN}✓ Kafka UI v${KAFKA_UI_VERSION} bundled (${KUI_SIZE})${NC}"
+else
+    echo -e "${YELLOW}⚠ Kafka UI jar not found at $KAFKA_UI_JAR${NC}"
     echo -e "${YELLOW}  The installer will auto-download it during install.${NC}"
 fi
 

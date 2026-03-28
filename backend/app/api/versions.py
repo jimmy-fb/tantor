@@ -115,9 +115,13 @@ async def upload_kafka_binary(file: UploadFile = File(...), _: User = Depends(re
             )
 
     dest = Path(settings.KAFKA_REPO_DIR) / canonical
+    dest.parent.mkdir(parents=True, exist_ok=True)
     content = await file.read()
+    if len(content) < 1000:
+        raise HTTPException(status_code=400, detail="File appears too small to be a valid Kafka binary")
     dest.write_bytes(content)
     size_mb = round(len(content) / (1024 * 1024), 1)
+    logging.getLogger("tantor.versions").info(f"Uploaded Kafka binary: {canonical} ({size_mb} MB)")
     return {"filename": canonical, "size_mb": size_mb, "uploaded": True}
 
 

@@ -43,19 +43,24 @@ kafka:
   clusters:
     - name: {cluster_name}
       bootstrapServers: {bootstrap_servers}
-      metrics:
-        port: 9092
-        type: JMX
+
+dynamic:
+  config:
+    enabled: true
 
 server:
   port: {port}
+
+auth:
+  type: DISABLED
 """
 
 KAFKA_UI_INSTALL_DIR = "/opt/kafka-ui"
 KAFKA_UI_JAR_NAME = "kafka-ui-api.jar"
 KAFKA_UI_SERVICE_NAME = "kafka-ui"
+KAFKA_UI_VERSION = "1.4.2"
 KAFKA_UI_DOWNLOAD_URL = (
-    "https://github.com/kafbat/kafka-ui/releases/download/v1.0.0/kafka-ui-api-v1.0.0.jar"
+    f"https://github.com/kafbat/kafka-ui/releases/download/v{KAFKA_UI_VERSION}/api-v{KAFKA_UI_VERSION}.jar"
 )
 
 SYSTEMD_UNIT_TEMPLATE = """\
@@ -66,7 +71,8 @@ After=network.target
 [Service]
 Type=simple
 User=root
-ExecStart=/usr/bin/java -jar {install_dir}/{jar_name} --spring.config.additional-location={install_dir}/config.yml
+Environment="JAVA_HOME={java_home}"
+ExecStart={java_home}/bin/java --add-opens java.rmi/javax.rmi.ssl=ALL-UNNAMED -jar {install_dir}/{jar_name} --spring.config.additional-location={install_dir}/config.yml
 WorkingDirectory={install_dir}
 Restart=on-failure
 RestartSec=10
@@ -102,12 +108,17 @@ class KafkaUIManager:
         if not services:
             raise ValueError("No broker services found for this cluster")
 
+        # Get listener port from cluster config
+        import json
+        cluster_cfg = json.loads(cluster.config_json) if cluster.config_json else {}
+        listener_port = cluster_cfg.get("listener_port", 9092)
+
         hosts = {h.id: h for h in db.query(Host).all()}
         broker_addresses = []
         for svc in services:
             host = hosts.get(svc.host_id)
             if host:
-                broker_addresses.append(f"{host.ip_address}:9092")
+                broker_addresses.append(f"{host.ip_address}:{listener_port}")
 
         bootstrap_servers = ",".join(broker_addresses)
 
@@ -182,7 +193,7 @@ class KafkaUIManager:
             target_host.auth_type,
             target_host.encrypted_credential,
         ) as client:
-            # Check for Java
+            # Check for Java and discover JAVA_HOME
             _log(task_id, "Checking Java installation...")
             exit_code, stdout, stderr = SSHManager.exec_command(client, "java -version 2>&1")
             if exit_code != 0:
@@ -190,6 +201,13 @@ class KafkaUIManager:
                 _kafka_ui_tasks[task_id]["status"] = "error"
                 return
             _log(task_id, f"Java found: {stdout.splitlines()[0] if stdout else 'unknown version'}")
+
+            # Discover JAVA_HOME
+            exit_code, java_home_out, _ = SSHManager.exec_command(
+                client, "readlink -f $(which java) | sed 's|/bin/java||'"
+            )
+            java_home = java_home_out.strip() if exit_code == 0 and java_home_out.strip() else "/usr"
+            _log(task_id, f"JAVA_HOME: {java_home}")
 
             # Check port availability
             _log(task_id, f"Checking port {port} availability...")
@@ -241,6 +259,7 @@ class KafkaUIManager:
             unit_content = SYSTEMD_UNIT_TEMPLATE.format(
                 install_dir=KAFKA_UI_INSTALL_DIR,
                 jar_name=KAFKA_UI_JAR_NAME,
+                java_home=java_home,
             )
             unit_path = f"/etc/systemd/system/{KAFKA_UI_SERVICE_NAME}.service"
             SSHManager.upload_content(client, unit_content, unit_path)

@@ -533,7 +533,11 @@ export default function ClusterDetail() {
             <TerminalOutput logs={logs} status={deployStatus} />
           ) : (
             <div className="bg-gray-900 rounded-xl p-5 text-gray-500 text-sm font-mono">
-              No deployment logs yet. Click "Deploy" to start.
+              {cluster.state === 'configured'
+                ? 'No deployment logs yet. Use the "Deploy" button above to start deployment.'
+                : cluster.state === 'running' || cluster.state === 'stopped'
+                  ? 'Deployment logs from previous sessions are not retained. Re-deploy to see new logs.'
+                  : 'No deployment logs available.'}
             </div>
           )}
         </div>

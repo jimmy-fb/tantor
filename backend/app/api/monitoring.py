@@ -62,9 +62,18 @@ def get_cluster_metrics(
     services = db.query(Service).filter(Service.cluster_id == cluster_id).all()
     nodes = []
 
+    # Deduplicate by host_id — multiple services can run on the same host (#10, #15)
+    seen_hosts: dict[str, dict] = {}
     for svc in services:
         host = db.query(Host).filter(Host.id == svc.host_id).first()
         if not host:
+            continue
+
+        if host.id in seen_hosts:
+            # Append role to existing node entry
+            existing = seen_hosts[host.id]
+            existing["role"] = existing["role"] + ", " + svc.role
+            existing["node_id"] = min(existing["node_id"], svc.node_id)
             continue
 
         node_metrics = {
@@ -78,6 +87,7 @@ def get_cluster_metrics(
             "kafka": _get_kafka_metrics(host),
             "disk": _get_disk_metrics(host),
         }
+        seen_hosts[host.id] = node_metrics
         nodes.append(node_metrics)
 
     return {
@@ -174,13 +184,21 @@ echo "KAFKA_DATA_MB:$DATA_SIZE"
 LOG_SIZE=$(du -sm /opt/kafka/logs 2>/dev/null | awk "{print \\$1}" || echo 0)
 echo "KAFKA_LOG_MB:$LOG_SIZE"
 
-# Topic count (from data directory)
-TOPICS=$(ls -d /var/lib/kafka/data/*-* 2>/dev/null | sed "s/-[0-9]*$//" | sort -u | wc -l || echo 0)
-echo "KAFKA_TOPICS:$TOPICS"
-
-# Partition count
-PARTITIONS=$(ls -d /var/lib/kafka/data/*-* 2>/dev/null | wc -l || echo 0)
-echo "KAFKA_PARTITIONS:$PARTITIONS"
+# Topic & partition count (prefer kafka CLI for accuracy, fall back to filesystem)
+JAVA_HOME_DIR=$(readlink -f $(which java 2>/dev/null) 2>/dev/null | sed "s|/bin/java||" || echo "/usr")
+export JAVA_HOME=$JAVA_HOME_DIR
+TOPIC_INFO=$(/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list 2>/dev/null | grep -v "^$" | wc -l || echo -1)
+if [ "$TOPIC_INFO" -ge 0 ] 2>/dev/null; then
+    echo "KAFKA_TOPICS:$TOPIC_INFO"
+    PART_INFO=$(/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --describe 2>/dev/null | grep "PartitionCount" | awk -F'PartitionCount:' "{sum+=\\$2} END {print sum+0}" || echo 0)
+    echo "KAFKA_PARTITIONS:$PART_INFO"
+else
+    # Fallback to filesystem
+    TOPICS=$(ls -d /var/lib/kafka/data/*-* 2>/dev/null | sed "s/-[0-9]*$//" | sort -u | wc -l || echo 0)
+    echo "KAFKA_TOPICS:$TOPICS"
+    PARTITIONS=$(ls -d /var/lib/kafka/data/*-* 2>/dev/null | wc -l || echo 0)
+    echo "KAFKA_PARTITIONS:$PARTITIONS"
+fi
 
 # Open file descriptors
 if [ "$PID" != "0" ] && [ -d "/proc/$PID/fd" ]; then

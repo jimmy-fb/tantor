@@ -1,0 +1,19 @@
+kafka:
+  clusters: []
+
+dynamic:
+  config:
+    enabled: true
+
+server:
+  port: 8989
+  servlet:
+    context-path: /kafka-ui
+
+auth:
+  type: DISABLED
+
+logging:
+  level:
+    root: WARN
+    io.kafbat.ui: INFO

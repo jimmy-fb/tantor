@@ -16,6 +16,52 @@ from app.services.crypto import decrypt
 
 logger = logging.getLogger("tantor.deployer")
 
+
+def _sync_local_kafka_ui(db: Session):
+    """Sync all running clusters to the local kafka-ui config."""
+    try:
+        import subprocess
+        import yaml
+        from pathlib import Path
+
+        config_path = Path("/opt/tantor/kafka-ui/config.yml")
+        if not config_path.parent.exists():
+            return  # kafka-ui not installed locally
+
+        running_clusters = db.query(Cluster).filter(Cluster.state == "running").all()
+        hosts_map = {h.id: h for h in db.query(Host).all()}
+
+        kafka_clusters = []
+        for c in running_clusters:
+            c_cfg = json.loads(c.config_json) if c.config_json else {}
+            port = c_cfg.get("listener_port", 9092)
+            broker_svcs = db.query(Service).filter(
+                Service.cluster_id == c.id,
+                Service.role.in_(["broker", "broker_controller"]),
+            ).all()
+            bootstrap = []
+            for s in broker_svcs:
+                h = hosts_map.get(s.host_id)
+                if h:
+                    bootstrap.append(f"{h.ip_address}:{port}")
+            if bootstrap:
+                kafka_clusters.append({
+                    "name": c.name,
+                    "bootstrapServers": ",".join(bootstrap),
+                })
+
+        config = {
+            "kafka": {"clusters": kafka_clusters},
+            "dynamic": {"config": {"enabled": True}},
+            "server": {"port": 8989, "servlet": {"context-path": "/kafka-ui"}},
+            "auth": {"type": "DISABLED"},
+            "logging": {"level": {"root": "WARN", "io.kafbat.ui": "INFO"}},
+        }
+        config_path.write_text(yaml.dump(config, default_flow_style=False))
+        subprocess.run(["systemctl", "restart", "tantor-kafka-ui"], capture_output=True, timeout=10)
+    except Exception as e:
+        logger.warning("Failed to sync local kafka-ui: %s", e)
+
 # In-memory task tracking
 _deployment_tasks: dict[str, dict] = {}
 
@@ -81,6 +127,7 @@ def deploy_cluster(cluster_id: str, task_id: str, db: Session):
         return
 
     # Check 2: All hosts must exist and be reachable
+    offline_hosts = []
     for svc in services:
         host = hosts.get(svc.host_id)
         if not host:
@@ -90,7 +137,11 @@ def deploy_cluster(cluster_id: str, task_id: str, db: Session):
             db.commit()
             return
         if host.status != "online":
+            offline_hosts.append(f"{host.hostname} ({host.ip_address})")
             _log(task_id, f"WARNING: Host {host.hostname} ({host.ip_address}) status is '{host.status}', not 'online'")
+
+    if offline_hosts:
+        _log(task_id, f"WARNING: {len(offline_hosts)} host(s) are offline: {', '.join(offline_hosts)}. Deployment may fail.")
 
     # Check 3: KRaft mode needs at least one controller
     if cluster.mode == "kraft":
@@ -322,6 +373,13 @@ def _run_ansible_deployment(
         _deployment_tasks[task_id]["status"] = "completed"
         _log(task_id, "")
         _log(task_id, "Deployment completed successfully!")
+
+        # Auto-sync local kafka-ui config with the new cluster
+        try:
+            _sync_local_kafka_ui(db)
+            _log(task_id, "Kafka UI synced with new cluster configuration")
+        except Exception as e:
+            _log(task_id, f"NOTE: Could not auto-sync Kafka UI: {e}")
     else:
         cluster.state = "error"
         _deployment_tasks[task_id]["status"] = "completed_with_errors"
