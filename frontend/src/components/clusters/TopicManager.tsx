@@ -42,9 +42,11 @@ export default function TopicManager({ clusterId }: Props) {
     fetchTopics();
   }, [fetchTopics]);
 
-  // Auto-refresh every 15 seconds
+  // Auto-refresh every 60 seconds (only when tab is visible)
   useEffect(() => {
-    const interval = setInterval(fetchTopics, 15000);
+    const interval = setInterval(() => {
+      if (!document.hidden) fetchTopics();
+    }, 60000);
     return () => clearInterval(interval);
   }, [fetchTopics]);
 

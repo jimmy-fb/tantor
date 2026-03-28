@@ -21,7 +21,6 @@ import type {
 
 const api = axios.create({
   baseURL: '/api',
-  headers: { 'Cache-Control': 'no-cache' },
 });
 
 // ── Request interceptor: attach JWT token ────────────

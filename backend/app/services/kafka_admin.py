@@ -49,18 +49,16 @@ class KafkaAdmin:
         host, bootstrap = KafkaAdmin._get_broker(cluster_id, db)
         kh = settings.KAFKA_INSTALL_DIR
 
+        # Single SSH call to describe ALL topics at once (avoids N+1 SSH connections)
         exit_code, stdout, stderr = KafkaAdmin._run_kafka_cmd(
-            host, f"{kh}/bin/kafka-topics.sh --bootstrap-server {bootstrap} --list"
+            host, f"{kh}/bin/kafka-topics.sh --bootstrap-server {bootstrap} --describe",
+            timeout=60,
         )
         if exit_code != 0:
             raise ValueError(f"Failed to list topics: {stderr}")
 
-        topics = [t.strip() for t in stdout.splitlines() if t.strip()]
-        result = []
-        for topic_name in topics:
-            detail = KafkaAdmin.get_topic_detail(cluster_id, topic_name, db)
-            result.append(detail)
-        return result
+        # Parse the combined describe output into individual topics
+        return KafkaAdmin._parse_all_topics_describe(stdout)
 
     @staticmethod
     def get_topic_detail(cluster_id: str, topic_name: str, db: Session) -> dict:
@@ -165,6 +163,7 @@ class KafkaAdmin:
         host, bootstrap = KafkaAdmin._get_broker(cluster_id, db)
         kh = settings.KAFKA_INSTALL_DIR
 
+        # First get the list of groups
         exit_code, stdout, stderr = KafkaAdmin._run_kafka_cmd(
             host, f"{kh}/bin/kafka-consumer-groups.sh --bootstrap-server {bootstrap} --list"
         )
@@ -172,13 +171,54 @@ class KafkaAdmin:
             raise ValueError(f"Failed to list consumer groups: {stderr}")
 
         groups = [g.strip() for g in stdout.splitlines() if g.strip()]
+        if not groups:
+            return []
+
+        # Batch describe all groups in a single SSH call
+        group_args = " ".join(f"--group {g}" for g in groups)
+        exit_code2, stdout2, stderr2 = KafkaAdmin._run_kafka_cmd(
+            host,
+            f"{kh}/bin/kafka-consumer-groups.sh --bootstrap-server {bootstrap} --describe {group_args}",
+            timeout=60,
+        )
+
+        if exit_code2 != 0:
+            # Fallback: return basic info without details
+            return [{"group_id": g, "state": "Unknown", "members": 0, "topics": [], "offsets": []} for g in groups]
+
+        # Parse all groups from the combined output
         result = []
-        for group_id in groups:
-            try:
-                detail = KafkaAdmin.get_consumer_group_detail(cluster_id, group_id, db)
-                result.append(detail)
-            except Exception:
-                result.append({"group_id": group_id, "state": "Unknown", "members": 0, "topics": [], "offsets": []})
+        current_group = None
+        current_lines: list[str] = []
+
+        for line in stdout2.splitlines():
+            if line.startswith("GROUP") or not line.strip():
+                continue
+            # New group section detected by group name in first column
+            parts = line.split()
+            if len(parts) >= 6:
+                gid = parts[0]
+                if gid != current_group:
+                    if current_group and current_lines:
+                        result.append(KafkaAdmin._parse_consumer_group(current_group, "\n".join(current_lines)))
+                    current_group = gid
+                    current_lines = []
+                current_lines.append(line)
+            elif "has no active members" in line:
+                for g in groups:
+                    if g in line:
+                        result.append({"group_id": g, "state": "Empty", "members": 0, "topics": [], "offsets": []})
+                        break
+
+        if current_group and current_lines:
+            result.append(KafkaAdmin._parse_consumer_group(current_group, "\n".join(current_lines)))
+
+        # Add any groups that weren't in the describe output
+        found_ids = {r["group_id"] for r in result}
+        for g in groups:
+            if g not in found_ids:
+                result.append({"group_id": g, "state": "Unknown", "members": 0, "topics": [], "offsets": []})
+
         return result
 
     @staticmethod
@@ -421,6 +461,41 @@ class KafkaAdmin:
         return results
 
     # ── Parsers ──────────────────────────────────────────
+
+    @staticmethod
+    def _parse_all_topics_describe(raw: str) -> list[dict]:
+        """Parse kafka-topics.sh --describe output for ALL topics at once.
+
+        The output contains multiple topic blocks separated by header lines.
+        Each block starts with 'Topic: <name>\tPartitionCount:...'
+        """
+        if not raw.strip():
+            return []
+
+        topics = []
+        current_name = None
+        current_lines: list[str] = []
+
+        for line in raw.splitlines():
+            stripped = line.strip()
+            if not stripped:
+                continue
+            if stripped.startswith("Topic:") and "PartitionCount:" in stripped:
+                # New topic header — save previous topic if any
+                if current_name is not None:
+                    topics.append(KafkaAdmin._parse_topic_describe(current_name, "\n".join(current_lines)))
+                # Extract topic name
+                name_part = stripped.split("\t")[0]
+                current_name = name_part.split(":", 1)[1].strip()
+                current_lines = [stripped]
+            elif stripped.startswith("Topic:") and "Partition:" in stripped:
+                current_lines.append(stripped)
+
+        # Don't forget the last topic
+        if current_name is not None:
+            topics.append(KafkaAdmin._parse_topic_describe(current_name, "\n".join(current_lines)))
+
+        return topics
 
     @staticmethod
     def _parse_topic_describe(topic_name: str, raw: str) -> dict:

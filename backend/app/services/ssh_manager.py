@@ -1,16 +1,63 @@
 import io
+import time
+import threading
 from contextlib import contextmanager
 
 import paramiko
 
 from app.services.crypto import decrypt
 
+# Connection pool: reuse SSH connections within a time window
+_pool: dict[str, tuple[paramiko.SSHClient, float]] = {}
+_pool_lock = threading.Lock()
+_POOL_TTL = 120  # seconds to keep idle connections
+
+
+def _pool_key(ip: str, port: int, username: str) -> str:
+    return f"{username}@{ip}:{port}"
+
+
+def _cleanup_pool():
+    """Remove stale connections from the pool."""
+    now = time.time()
+    stale = [k for k, (_, ts) in _pool.items() if now - ts > _POOL_TTL]
+    for k in stale:
+        try:
+            _pool[k][0].close()
+        except Exception:
+            pass
+        del _pool[k]
+
 
 class SSHManager:
     @staticmethod
     @contextmanager
     def connect(ip_address: str, port: int, username: str, auth_type: str, encrypted_credential: str):
-        """Context manager that yields a connected Paramiko SSHClient."""
+        """Context manager that yields a connected Paramiko SSHClient.
+
+        Uses a connection pool to reuse existing connections for up to 120s.
+        """
+        key = _pool_key(ip_address, port, username)
+
+        with _pool_lock:
+            _cleanup_pool()
+            if key in _pool:
+                client, _ = _pool[key]
+                # Verify connection is still alive
+                try:
+                    client.get_transport().send_ignore()
+                    _pool[key] = (client, time.time())
+                    yield client
+                    return
+                except Exception:
+                    # Connection died, remove and reconnect
+                    try:
+                        client.close()
+                    except Exception:
+                        pass
+                    del _pool[key]
+
+        # Create new connection outside lock (SSH handshake is slow)
         client = paramiko.SSHClient()
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         credential = decrypt(encrypted_credential)
@@ -37,9 +84,15 @@ class SSHManager:
                     look_for_keys=False,
                     allow_agent=False,
                 )
+
+            # Store in pool
+            with _pool_lock:
+                _pool[key] = (client, time.time())
+
             yield client
-        finally:
+        except Exception:
             client.close()
+            raise
 
     @staticmethod
     def exec_command(client: paramiko.SSHClient, command: str, timeout: int = 30) -> tuple[int, str, str]:

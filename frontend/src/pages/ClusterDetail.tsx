@@ -11,8 +11,6 @@ import {
   getCluster, deployCluster, startCluster, stopCluster, getClusterStatus,
   validateCluster, getHosts, addServices, removeService,
 } from '../lib/api';
-import { useDeploymentLogs } from '../hooks/useWebSocket';
-import TerminalOutput from '../components/terminal/TerminalOutput';
 import TopicManager from '../components/clusters/TopicManager';
 import ConsumerGroups from '../components/clusters/ConsumerGroups';
 import ProduceMessage from '../components/clusters/ProduceMessage';
@@ -52,16 +50,14 @@ const ROLES = [
   { id: 'kafka_connect', label: 'Kafka Connect' },
 ];
 
-type Tab = 'overview' | 'topics' | 'consumers' | 'produce' | 'consume' | 'connect' | 'security' | 'ksqldb' | 'validate' | 'logs' | 'service-logs' | 'config' | 'restart' | 'upgrade' | 'rebalance';
+type Tab = 'overview' | 'topics' | 'consumers' | 'produce' | 'consume' | 'connect' | 'security' | 'ksqldb' | 'validate' | 'service-logs' | 'config' | 'restart' | 'upgrade' | 'rebalance';
 
 export default function ClusterDetail() {
   const { id } = useParams<{ id: string }>();
   const [detail, setDetail] = useState<ClusterDetailType | null>(null);
   const [liveStatus, setLiveStatus] = useState<ServiceStatus[]>([]);
-  const [taskId, setTaskId] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('overview');
-  const { logs, status: deployStatus } = useDeploymentLogs(taskId);
 
   // Validation state
   const [validating, setValidating] = useState(false);
@@ -92,9 +88,8 @@ export default function ClusterDetail() {
     if (!id) return;
     setActionLoading('deploy');
     try {
-      const task = await deployCluster(id);
-      setTaskId(task.task_id);
-      setActiveTab('logs');
+      await deployCluster(id);
+      fetchDetail();
     } finally {
       setActionLoading(null);
     }
@@ -210,7 +205,6 @@ export default function ClusterDetail() {
     { id: 'restart', label: 'Restart', icon: <RotateCw size={14} />, requiresRunning: true },
     { id: 'upgrade', label: 'Upgrade', icon: <ArrowUpCircle size={14} /> },
     { id: 'service-logs', label: 'Service Logs', icon: <ScrollText size={14} />, requiresRunning: true },
-    { id: 'logs', label: 'Deploy Logs', icon: <ScrollText size={14} /> },
   ];
 
   const visibleTabs = tabs.filter(t => {
@@ -526,22 +520,6 @@ export default function ClusterDetail() {
         <ServiceLogs clusterId={id} services={services} />
       )}
 
-      {activeTab === 'logs' && (
-        <div>
-          <h2 className="text-sm font-semibold text-gray-700 mb-3">Deployment Logs</h2>
-          {taskId ? (
-            <TerminalOutput logs={logs} status={deployStatus} />
-          ) : (
-            <div className="bg-gray-900 rounded-xl p-5 text-gray-500 text-sm font-mono">
-              {cluster.state === 'configured'
-                ? 'No deployment logs yet. Use the "Deploy" button above to start deployment.'
-                : cluster.state === 'running' || cluster.state === 'stopped'
-                  ? 'Deployment logs from previous sessions are not retained. Re-deploy to see new logs.'
-                  : 'No deployment logs available.'}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
