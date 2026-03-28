@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { BarChart3, Cpu, HardDrive, Activity, RefreshCw, Server, Wifi, Database, Clock, MemoryStick } from 'lucide-react';
+import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
 import { getClusters, getClusterMetrics } from '../lib/api';
 import type { Cluster } from '../types';
-import GrafanaDashboards from '../components/monitoring/GrafanaDashboards';
 
 interface NodeMetrics {
   host_id: string;
@@ -51,19 +51,13 @@ interface ClusterMetrics {
   nodes: NodeMetrics[];
 }
 
-function ProgressBar({ value, max = 100, color = 'blue' }: { value: number; max?: number; color?: string }) {
-  const pct = Math.min((value / max) * 100, 100);
-  const colorMap: Record<string, string> = {
-    blue: pct > 80 ? 'bg-red-500' : pct > 60 ? 'bg-yellow-500' : 'bg-blue-500',
-    green: pct > 80 ? 'bg-red-500' : pct > 60 ? 'bg-yellow-500' : 'bg-green-500',
-    purple: pct > 80 ? 'bg-red-500' : pct > 60 ? 'bg-yellow-500' : 'bg-purple-500',
-  };
-  return (
-    <div className="w-full bg-gray-200 rounded-full h-2.5">
-      <div className={`${colorMap[color] || colorMap.blue} h-2.5 rounded-full transition-all duration-500`} style={{ width: `${pct}%` }} />
-    </div>
-  );
+interface TimePoint {
+  time: string;
+  timestamp: number;
+  [key: string]: string | number;
 }
+
+const MAX_HISTORY = 30; // 30 data points = 5 minutes at 10s intervals
 
 function MetricCard({ icon: Icon, label, value, sub }: { icon: typeof Cpu; label: string; value: string | number; sub?: string }) {
   return (
@@ -78,14 +72,68 @@ function MetricCard({ icon: Icon, label, value, sub }: { icon: typeof Cpu; label
   );
 }
 
+function LiveChart({ data, dataKey, color, label, unit = '%', max }: {
+  data: TimePoint[];
+  dataKey: string;
+  color: string;
+  label: string;
+  unit?: string;
+  max?: number;
+}) {
+  const latest = data.length > 0 ? (data[data.length - 1][dataKey] as number) ?? 0 : 0;
+  const statusColor = latest > 80 ? 'text-red-600' : latest > 60 ? 'text-yellow-600' : 'text-green-600';
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl p-4">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm font-medium text-gray-700">{label}</span>
+        <span className={`text-lg font-bold ${statusColor}`}>
+          {typeof latest === 'number' ? latest.toFixed(1) : latest}{unit}
+        </span>
+      </div>
+      <div style={{ height: 120 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={data} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+            <defs>
+              <linearGradient id={`grad-${dataKey}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={color} stopOpacity={0.3} />
+                <stop offset="95%" stopColor={color} stopOpacity={0.05} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+            <XAxis dataKey="time" tick={{ fontSize: 10 }} stroke="#ccc" interval="preserveStartEnd" />
+            <YAxis domain={[0, max || 'auto']} tick={{ fontSize: 10 }} stroke="#ccc" />
+            <Tooltip
+              contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }}
+              formatter={(value: unknown) => [`${Number(value).toFixed(1)}${unit}`, label]}
+              labelStyle={{ fontSize: 11, color: '#6b7280' }}
+            />
+            <Area
+              type="monotone"
+              dataKey={dataKey}
+              stroke={color}
+              strokeWidth={2}
+              fill={`url(#grad-${dataKey})`}
+              isAnimationActive={false}
+              dot={false}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
 export default function Monitoring() {
   const [clusters, setClusters] = useState<Cluster[]>([]);
   const [selectedCluster, setSelectedCluster] = useState<string>('');
   const [metrics, setMetrics] = useState<ClusterMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [autoRefresh, setAutoRefresh] = useState(false);
-  const [viewMode, setViewMode] = useState<'builtin' | 'grafana'>('builtin');
+  const [autoRefresh, setAutoRefresh] = useState(true); // ON by default
+  const [error, setError] = useState<string | null>(null);
+  // Time-series history per node: { hostId: TimePoint[] }
+  const historyRef = useRef<Record<string, TimePoint[]>>({});
 
   useEffect(() => {
     getClusters().then((data: Cluster[]) => {
@@ -98,21 +146,53 @@ export default function Monitoring() {
   const fetchMetrics = useCallback(async (silent = false) => {
     if (!selectedCluster) return;
     if (!silent) setRefreshing(true);
+    setError(null);
     try {
       const data = await getClusterMetrics(selectedCluster);
       setMetrics(data);
-    } catch { /* ignore */ }
+
+      // Append to time-series history
+      const now = new Date();
+      const timeLabel = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      for (const node of data.nodes) {
+        const key = node.host_id;
+        if (!historyRef.current[key]) historyRef.current[key] = [];
+        const history = historyRef.current[key];
+        history.push({
+          time: timeLabel,
+          timestamp: now.getTime(),
+          cpu: node.system.cpu_usage_pct ?? 0,
+          memory: node.system.memory_usage_pct ?? 0,
+          disk: node.disk.data?.usage_pct ?? node.disk.root?.usage_pct ?? 0,
+          connections: node.kafka.connections ?? 0,
+          kafkaMemory: node.kafka.memory_rss_mb ?? 0,
+          load1m: node.system.load_1m ?? 0,
+        });
+        // Keep only last MAX_HISTORY points
+        if (history.length > MAX_HISTORY) {
+          historyRef.current[key] = history.slice(-MAX_HISTORY);
+        }
+      }
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      if (!silent) setError(msg || 'Failed to fetch metrics. Check cluster connectivity.');
+    }
     if (!silent) setRefreshing(false);
   }, [selectedCluster]);
 
   useEffect(() => {
-    if (selectedCluster) fetchMetrics();
+    if (selectedCluster) {
+      historyRef.current = {}; // Reset history on cluster change
+      fetchMetrics();
+    }
   }, [selectedCluster, fetchMetrics]);
 
-  // Auto-refresh every 30s
+  // Auto-refresh every 10s for real-time feel
   useEffect(() => {
     if (!autoRefresh || !selectedCluster) return;
-    const interval = setInterval(() => fetchMetrics(true), 30000);
+    const interval = setInterval(() => {
+      if (!document.hidden) fetchMetrics(true);
+    }, 10000);
     return () => clearInterval(interval);
   }, [autoRefresh, selectedCluster, fetchMetrics]);
 
@@ -147,7 +227,7 @@ export default function Monitoring() {
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <BarChart3 size={24} /> Monitoring
           </h1>
-          <p className="text-gray-500 mt-1">Live Kafka & system metrics</p>
+          <p className="text-gray-500 mt-1">Real-time Kafka & system metrics</p>
         </div>
         <div className="flex items-center gap-3">
           {clusters.length > 1 && (
@@ -161,14 +241,16 @@ export default function Monitoring() {
               ))}
             </select>
           )}
-          <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+          <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
             <input
               type="checkbox"
               checked={autoRefresh}
               onChange={e => setAutoRefresh(e.target.checked)}
               className="rounded border-gray-300"
             />
-            Auto (30s)
+            <span className={autoRefresh ? 'text-green-600 font-medium' : ''}>
+              Live {autoRefresh ? '● 10s' : '(off)'}
+            </span>
           </label>
           <button
             onClick={() => fetchMetrics()}
@@ -181,109 +263,129 @@ export default function Monitoring() {
         </div>
       </div>
 
-      {/* View Mode Toggle */}
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit">
-        <button
-          onClick={() => setViewMode('builtin')}
-          className={`px-4 py-1.5 text-sm rounded-md transition-colors ${
-            viewMode === 'builtin' ? 'bg-white shadow text-gray-900 font-medium' : 'text-gray-600 hover:text-gray-800'
-          }`}
-        >
-          Built-in Metrics
-        </button>
-        <button
-          onClick={() => setViewMode('grafana')}
-          className={`px-4 py-1.5 text-sm rounded-md transition-colors ${
-            viewMode === 'grafana' ? 'bg-white shadow text-gray-900 font-medium' : 'text-gray-600 hover:text-gray-800'
-          }`}
-        >
-          Grafana Dashboards
-        </button>
-      </div>
-
-      {/* Grafana View */}
-      {viewMode === 'grafana' && selectedCluster && (
-        <GrafanaDashboards clusterId={selectedCluster} />
+      {/* Error */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
       )}
 
-      {/* Built-in Nodes View */}
-      {viewMode === 'builtin' && metrics?.nodes.map(node => (
-        <div key={node.host_id} className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-          {/* Node Header */}
-          <div className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Server size={20} className="text-gray-500" />
+      {/* Nodes */}
+      {metrics?.nodes.map(node => {
+        const history = historyRef.current[node.host_id] || [];
+
+        return (
+          <div key={node.host_id} className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+            {/* Node Header */}
+            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Server size={20} className="text-gray-500" />
+                <div>
+                  <h3 className="font-semibold text-gray-900">{node.hostname}</h3>
+                  <p className="text-xs text-gray-500">{node.ip_address} · {node.role} · Node {node.node_id}</p>
+                </div>
+              </div>
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${
+                node.kafka.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+              }`}>
+                <span className={`w-2 h-2 rounded-full ${node.kafka.status === 'active' ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                Kafka {node.kafka.status === 'active' ? 'Running' : node.kafka.status || 'Unknown'}
+              </span>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Real-time Charts */}
               <div>
-                <h3 className="font-semibold text-gray-900">{node.hostname}</h3>
-                <p className="text-xs text-gray-500">{node.ip_address} · {node.role} · Node {node.node_id}</p>
+                <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                  <Activity size={14} /> Real-time Performance
+                  {autoRefresh && <span className="text-[10px] text-green-600 bg-green-50 px-2 py-0.5 rounded-full font-normal">LIVE</span>}
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <LiveChart data={history} dataKey="cpu" color="#3b82f6" label="CPU Usage" max={100} />
+                  <LiveChart data={history} dataKey="memory" color="#10b981" label="Memory Usage" max={100} />
+                  <LiveChart data={history} dataKey="connections" color="#8b5cf6" label="Kafka Connections" unit="" />
+                </div>
+              </div>
+
+              {/* Kafka Metrics */}
+              <div>
+                <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                  <Database size={14} /> Kafka Broker
+                </h4>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                  <MetricCard icon={Clock} label="Uptime" value={node.kafka.uptime || '-'} />
+                  <MetricCard icon={MemoryStick} label="Memory (RSS)" value={`${node.kafka.memory_rss_mb || 0} MB`} />
+                  <MetricCard icon={Database} label="Data Size" value={`${node.kafka.data_size_mb || 0} MB`} />
+                  <MetricCard icon={BarChart3} label="Topics" value={node.kafka.topics ?? 0} />
+                  <MetricCard icon={HardDrive} label="Partitions" value={node.kafka.partitions ?? 0} />
+                  <MetricCard icon={Wifi} label="Connections" value={node.kafka.connections ?? 0} />
+                </div>
+              </div>
+
+              {/* System Metrics with progress bars */}
+              <div>
+                <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                  <Cpu size={14} /> System Resources
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">CPU ({node.system.cpu_cores || 0} cores)</span>
+                      <span className="font-medium">{node.system.cpu_usage_pct ?? 0}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2.5">
+                      <div
+                        className={`h-2.5 rounded-full transition-all duration-500 ${
+                          (node.system.cpu_usage_pct ?? 0) > 80 ? 'bg-red-500' :
+                          (node.system.cpu_usage_pct ?? 0) > 60 ? 'bg-yellow-500' : 'bg-blue-500'
+                        }`}
+                        style={{ width: `${Math.min(node.system.cpu_usage_pct ?? 0, 100)}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-400">Load: {node.system.load_1m ?? 0} / {node.system.load_5m ?? 0} / {node.system.load_15m ?? 0}</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Memory</span>
+                      <span className="font-medium">{node.system.memory_used_mb ?? 0} / {node.system.memory_total_mb ?? 0} MB</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2.5">
+                      <div
+                        className={`h-2.5 rounded-full transition-all duration-500 ${
+                          (node.system.memory_usage_pct ?? 0) > 80 ? 'bg-red-500' :
+                          (node.system.memory_usage_pct ?? 0) > 60 ? 'bg-yellow-500' : 'bg-green-500'
+                        }`}
+                        style={{ width: `${Math.min(node.system.memory_usage_pct ?? 0, 100)}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-400">{node.system.memory_available_mb ?? 0} MB available</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Disk (data)</span>
+                      <span className="font-medium">{node.disk.data?.usage_pct ?? node.disk.root?.usage_pct ?? 0}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2.5">
+                      <div
+                        className={`h-2.5 rounded-full transition-all duration-500 ${
+                          (node.disk.data?.usage_pct ?? node.disk.root?.usage_pct ?? 0) > 80 ? 'bg-red-500' :
+                          (node.disk.data?.usage_pct ?? node.disk.root?.usage_pct ?? 0) > 60 ? 'bg-yellow-500' : 'bg-purple-500'
+                        }`}
+                        style={{ width: `${Math.min(node.disk.data?.usage_pct ?? node.disk.root?.usage_pct ?? 0, 100)}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-400">
+                      {((node.disk.data?.available_mb ?? node.disk.root?.available_mb ?? 0) / 1024).toFixed(1)} GB free
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
-            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${
-              node.kafka.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-            }`}>
-              <span className={`w-2 h-2 rounded-full ${node.kafka.status === 'active' ? 'bg-green-500' : 'bg-red-500'}`} />
-              Kafka {node.kafka.status === 'active' ? 'Running' : node.kafka.status || 'Unknown'}
-            </span>
           </div>
-
-          <div className="p-6 space-y-6">
-            {/* Kafka Metrics */}
-            <div>
-              <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                <Activity size={14} /> Kafka Broker
-              </h4>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                <MetricCard icon={Clock} label="Uptime" value={node.kafka.uptime || '-'} />
-                <MetricCard icon={MemoryStick} label="Memory (RSS)" value={`${node.kafka.memory_rss_mb || 0} MB`} />
-                <MetricCard icon={Database} label="Data Size" value={`${node.kafka.data_size_mb || 0} MB`} />
-                <MetricCard icon={BarChart3} label="Topics" value={node.kafka.topics ?? 0} />
-                <MetricCard icon={HardDrive} label="Partitions" value={node.kafka.partitions ?? 0} />
-                <MetricCard icon={Wifi} label="Connections" value={node.kafka.connections ?? 0} />
-              </div>
-            </div>
-
-            {/* System Metrics */}
-            <div>
-              <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                <Cpu size={14} /> System Resources
-              </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {/* CPU */}
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">CPU ({node.system.cpu_cores || 0} cores)</span>
-                    <span className="font-medium">{node.system.cpu_usage_pct ?? 0}%</span>
-                  </div>
-                  <ProgressBar value={node.system.cpu_usage_pct ?? 0} color="blue" />
-                  <p className="text-xs text-gray-400">Load: {node.system.load_1m ?? 0} / {node.system.load_5m ?? 0} / {node.system.load_15m ?? 0}</p>
-                </div>
-
-                {/* Memory */}
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Memory</span>
-                    <span className="font-medium">{node.system.memory_used_mb ?? 0} / {node.system.memory_total_mb ?? 0} MB</span>
-                  </div>
-                  <ProgressBar value={node.system.memory_usage_pct ?? 0} color="green" />
-                  <p className="text-xs text-gray-400">{node.system.memory_available_mb ?? 0} MB available</p>
-                </div>
-
-                {/* Disk */}
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Disk (data)</span>
-                    <span className="font-medium">{node.disk.data?.usage_pct ?? node.disk.root?.usage_pct ?? 0}%</span>
-                  </div>
-                  <ProgressBar value={node.disk.data?.usage_pct ?? node.disk.root?.usage_pct ?? 0} color="purple" />
-                  <p className="text-xs text-gray-400">
-                    {((node.disk.data?.available_mb ?? node.disk.root?.available_mb ?? 0) / 1024).toFixed(1)} GB free
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
