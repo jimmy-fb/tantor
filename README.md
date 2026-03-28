@@ -31,6 +31,17 @@ Deploy, manage, and secure Apache Kafka clusters from a single web UI. Think of 
 
 ## Quick Start — One-Click Install
 
+### Option 1: Binary Installer (Recommended)
+
+```bash
+# Download and run — single command, nothing else needed
+curl -LO https://github.com/jimmy-fb/tantor/releases/download/v1.0.0/tantor-installer-1.0.0.bin
+sudo chmod +x tantor-installer-1.0.0.bin
+sudo ./tantor-installer-1.0.0.bin
+```
+
+### Option 2: From Source
+
 ```bash
 git clone https://github.com/jimmy-fb/tantor.git
 cd tantor
@@ -42,13 +53,13 @@ That's it. Open `http://<your-server-ip>` and log in with `admin` / `admin`.
 The installer automatically:
 - Detects your OS (Ubuntu/Debian or RHEL/CentOS/Rocky)
 - Installs all dependencies (Python 3.11+, Node.js 20, Nginx, Ansible)
-- Builds the frontend from source
+- Builds the frontend (or uses pre-built from .bin)
 - Downloads Kafka 3.7.0 binary (~113 MB) from Apache
 - Configures Nginx reverse proxy on port 80
 - Generates SSH keys for remote Kafka deployment
 - Sets up systemd services for automatic startup
 
-> **Tested and verified on:** RHEL 8.6, Ubuntu 24.04
+> **Tested and verified on:** Ubuntu 24.04, RHEL 8.6 — both via `.bin` installer
 
 ---
 
@@ -71,6 +82,26 @@ Tantor installs natively on any of these Linux distributions (no Docker required
 
 ## Prerequisites
 
+> **You only need a Linux server with root access and internet.** The installer handles everything else automatically.
+
+### What You Must Have
+
+1. **A Linux server** — Ubuntu 20.04+, RHEL 8+, CentOS Stream 8+, Rocky 8+, or any compatible distro
+2. **Root/sudo access** — The installer needs root to install packages and configure services
+3. **Internet access** — To download dependencies (Python, Nginx, Kafka binary). For air-gapped, use `--with-kafka` flag when building the `.bin`
+4. **Port 80 free** — Tantor's web UI runs on port 80 via Nginx
+
+### What the Installer Handles For You (no manual setup needed)
+
+- Python 3.11+ (installs automatically, even on RHEL 8 which ships Python 3.6)
+- Node.js 20 (only when installing from source; `.bin` has pre-built frontend)
+- Nginx web server
+- Ansible (for Kafka deployment to remote nodes)
+- Apache Kafka 3.7.0 binary (~113 MB download)
+- SSH key generation for remote deployment
+- systemd service configuration
+- Tantor system user and directory structure
+
 ### Tantor Server (the machine where you install Tantor)
 
 | Requirement | Minimum |
@@ -79,11 +110,9 @@ Tantor installs natively on any of these Linux distributions (no Docker required
 | **RAM** | 4 GB |
 | **Disk** | 20 GB free |
 | **CPU** | 2 cores |
-| **Network** | SSH access to all Kafka target nodes |
-| **Ports** | 80 (web UI) |
+| **Network** | Internet access + SSH access to all Kafka target nodes |
+| **Ports** | 80 (web UI), outbound 22 (SSH to Kafka nodes) |
 | **User** | Root or sudo access (for installation) |
-
-> The installer handles everything else — Python, Node.js, Nginx, Ansible, Kafka binaries, SSH keys.
 
 ### Kafka Target Nodes (the machines where Kafka will be deployed)
 
@@ -96,13 +125,37 @@ Tantor installs natively on any of these Linux distributions (no Docker required
 | **Java** | Java 17+ (Tantor installs this automatically during deployment) |
 | **Network** | SSH accessible from Tantor server |
 | **Ports** | 22 (SSH), 9092 (Kafka), 9093 (KRaft controller) |
-| **User** | SSH user with sudo privileges |
+| **User** | SSH user with passwordless sudo |
+
+> **Passwordless sudo setup on Kafka nodes:**
+> ```bash
+> echo "your-ssh-user ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/your-ssh-user
+> ```
 
 ---
 
 ## Installation
 
-### Option A: Install from GitHub (Recommended)
+### Option A: Self-Extracting .bin Installer (Recommended)
+
+```bash
+# Download once, run anywhere — works on Ubuntu, RHEL, CentOS, Rocky, etc.
+curl -LO https://github.com/jimmy-fb/tantor/releases/download/v1.0.0/tantor-installer-1.0.0.bin
+sudo chmod +x tantor-installer-1.0.0.bin
+sudo ./tantor-installer-1.0.0.bin
+```
+
+The `.bin` includes a pre-built frontend — no Node.js build step needed. Install takes ~2-3 minutes.
+
+```bash
+# Other .bin options:
+./tantor-installer-1.0.0.bin --info          # Show installer info
+./tantor-installer-1.0.0.bin --extract ./dir  # Extract without installing
+sudo ./tantor-installer-1.0.0.bin --uninstall # Remove Tantor
+sudo ./tantor-installer-1.0.0.bin --force     # Skip confirmation prompt
+```
+
+### Option B: Install from GitHub Source
 
 ```bash
 git clone https://github.com/jimmy-fb/tantor.git
@@ -110,17 +163,18 @@ cd tantor
 sudo ./install.sh
 ```
 
-### Option B: Install from Release Tarball (Air-Gapped)
+This builds the frontend from source (requires Node.js 18+, installed automatically).
+
+### Building the .bin Installer
+
+To create your own `.bin` installer from source:
 
 ```bash
-# Download the release (includes pre-built frontend + Kafka binary)
-curl -LO https://github.com/jimmy-fb/tantor/releases/download/v1.0.0/tantor-1.0.0-linux.tar.gz
-tar xzf tantor-1.0.0-linux.tar.gz
-cd tantor-1.0.0
-sudo ./install.sh
+git clone https://github.com/jimmy-fb/tantor.git
+cd tantor
+./build-installer.sh                # Creates tantor-installer-1.0.0.bin (~364KB)
+./build-installer.sh --with-kafka   # Bundle Kafka binary (~114MB, for air-gapped)
 ```
-
-The tarball is self-contained — no internet access needed during install.
 
 ### Verify Installation
 
@@ -303,6 +357,11 @@ Or upload via the UI: **Kafka Versions → Upload Binary**.
 ## Uninstall
 
 ```bash
+# If installed via .bin:
+sudo ./tantor-installer-1.0.0.bin --uninstall
+
+# If installed from source:
+cd tantor
 sudo ./install.sh --uninstall
 ```
 
