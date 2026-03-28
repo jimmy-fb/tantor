@@ -198,11 +198,11 @@ else
 fi
 
 # Data directory size
-DATA_SIZE=$(du -sm /var/lib/kafka/data 2>/dev/null | awk "{print \\$1}" || echo 0)
+DATA_SIZE=$(du -sm /var/lib/kafka/data 2>/dev/null | awk "{print \\$1}" || sudo du -sm /var/lib/kafka/data 2>/dev/null | awk "{print \\$1}" || echo 0)
 echo "KAFKA_DATA_MB:$DATA_SIZE"
 
 # Log directory size
-LOG_SIZE=$(du -sm /opt/kafka/logs 2>/dev/null | awk "{print \\$1}" || echo 0)
+LOG_SIZE=$(du -sm /opt/kafka/logs 2>/dev/null | awk "{print \\$1}" || sudo du -sm /opt/kafka/logs 2>/dev/null | awk "{print \\$1}" || echo 0)
 echo "KAFKA_LOG_MB:$LOG_SIZE"
 
 # Topic & partition count (prefer kafka CLI for accuracy, fall back to filesystem)
@@ -221,9 +221,12 @@ else
     echo "KAFKA_PARTITIONS:$PARTITIONS"
 fi
 
-# Open file descriptors
-if [ "$PID" != "0" ] && [ -d "/proc/$PID/fd" ]; then
+# Open file descriptors (try direct, then sudo)
+if [ "$PID" != "0" ] && [ -d "/proc/$PID" ]; then
     FDS=$(ls /proc/$PID/fd 2>/dev/null | wc -l || echo 0)
+    if [ "$FDS" = "0" ]; then
+        FDS=$(sudo ls /proc/$PID/fd 2>/dev/null | wc -l || echo 0)
+    fi
     echo "KAFKA_FDS:$FDS"
 else
     echo "KAFKA_FDS:0"
