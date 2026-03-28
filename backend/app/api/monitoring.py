@@ -114,8 +114,17 @@ echo "MEM_TOTAL_MB:$TOTAL"
 echo "MEM_USED_MB:$USED"
 echo "MEM_AVAIL_MB:$AVAIL"
 
-# CPU usage (1-second sample)
-CPU_IDLE=$(top -bn1 2>/dev/null | grep "Cpu(s)" | awk "{print \\$8}" | tr -d "%id," || echo "0")
+# CPU usage — use /proc/stat for reliable cross-distro measurement
+read -r _ u1 n1 s1 i1 w1 _ < /proc/stat
+sleep 1
+read -r _ u2 n2 s2 i2 w2 _ < /proc/stat
+IDLE=$((i2 - i1))
+TOTAL=$(( (u2+n2+s2+i2+w2) - (u1+n1+s1+i1+w1) ))
+if [ "$TOTAL" -gt 0 ]; then
+    CPU_IDLE=$((IDLE * 100 / TOTAL))
+else
+    CPU_IDLE=100
+fi
 echo "CPU_IDLE:$CPU_IDLE"
 '"""
     output = _ssh_exec(host, cmd, timeout=15)
@@ -128,20 +137,32 @@ echo "CPU_IDLE:$CPU_IDLE"
             key, val = line.split(":", 1)
             metrics[key.strip()] = val.strip()
 
+    def safe_int(val: str, default: int = 0) -> int:
+        try:
+            return int(val.strip()) if val.strip() else default
+        except (ValueError, AttributeError):
+            return default
+
+    def safe_float(val: str, default: float = 0.0) -> float:
+        try:
+            return float(val.strip()) if val.strip() else default
+        except (ValueError, AttributeError):
+            return default
+
     try:
         load_parts = metrics.get("LOAD", "0 0 0").split()
-        cpu_cores = int(metrics.get("CPU_CORES", "1"))
-        mem_total = int(metrics.get("MEM_TOTAL_MB", "0"))
-        mem_used = int(metrics.get("MEM_USED_MB", "0"))
-        mem_avail = int(metrics.get("MEM_AVAIL_MB", "0"))
-        cpu_idle = float(metrics.get("CPU_IDLE", "0"))
+        cpu_cores = safe_int(metrics.get("CPU_CORES", "1"), 1)
+        mem_total = safe_int(metrics.get("MEM_TOTAL_MB", "0"))
+        mem_used = safe_int(metrics.get("MEM_USED_MB", "0"))
+        mem_avail = safe_int(metrics.get("MEM_AVAIL_MB", "0"))
+        cpu_idle = safe_float(metrics.get("CPU_IDLE", "0"))
 
         return {
             "uptime": metrics.get("UPTIME", "unknown"),
             "cpu_cores": cpu_cores,
-            "load_1m": float(load_parts[0]) if load_parts else 0,
-            "load_5m": float(load_parts[1]) if len(load_parts) > 1 else 0,
-            "load_15m": float(load_parts[2]) if len(load_parts) > 2 else 0,
+            "load_1m": safe_float(load_parts[0]) if load_parts else 0,
+            "load_5m": safe_float(load_parts[1]) if len(load_parts) > 1 else 0,
+            "load_15m": safe_float(load_parts[2]) if len(load_parts) > 2 else 0,
             "cpu_usage_pct": round(100.0 - cpu_idle, 1),
             "memory_total_mb": mem_total,
             "memory_used_mb": mem_used,
@@ -222,23 +243,29 @@ echo "KAFKA_CONNECTIONS:$CONNECTIONS"
             key, val = line.split(":", 1)
             metrics[key.strip()] = val.strip()
 
+    def safe_int(val: str, default: int = 0) -> int:
+        try:
+            return int(val.strip()) if val.strip() else default
+        except (ValueError, AttributeError):
+            return default
+
     try:
-        uptime_secs = int(metrics.get("KAFKA_UPTIME_SECS", "0"))
+        uptime_secs = safe_int(metrics.get("KAFKA_UPTIME_SECS", "0"))
         hours = uptime_secs // 3600
         minutes = (uptime_secs % 3600) // 60
 
         return {
             "status": metrics.get("KAFKA_STATUS", "unknown"),
-            "pid": int(metrics.get("KAFKA_PID", "0")),
+            "pid": safe_int(metrics.get("KAFKA_PID", "0")),
             "uptime": f"{hours}h {minutes}m" if uptime_secs > 0 else "not running",
             "uptime_seconds": uptime_secs,
-            "memory_rss_mb": round(int(metrics.get("KAFKA_RSS_KB", "0")) / 1024, 1),
-            "data_size_mb": int(metrics.get("KAFKA_DATA_MB", "0")),
-            "log_size_mb": int(metrics.get("KAFKA_LOG_MB", "0")),
-            "topics": int(metrics.get("KAFKA_TOPICS", "0")),
-            "partitions": int(metrics.get("KAFKA_PARTITIONS", "0")),
-            "open_fds": int(metrics.get("KAFKA_FDS", "0")),
-            "connections": int(metrics.get("KAFKA_CONNECTIONS", "0")),
+            "memory_rss_mb": round(safe_int(metrics.get("KAFKA_RSS_KB", "0")) / 1024, 1),
+            "data_size_mb": safe_int(metrics.get("KAFKA_DATA_MB", "0")),
+            "log_size_mb": safe_int(metrics.get("KAFKA_LOG_MB", "0")),
+            "topics": safe_int(metrics.get("KAFKA_TOPICS", "0")),
+            "partitions": safe_int(metrics.get("KAFKA_PARTITIONS", "0")),
+            "open_fds": safe_int(metrics.get("KAFKA_FDS", "0")),
+            "connections": safe_int(metrics.get("KAFKA_CONNECTIONS", "0")),
         }
     except Exception as e:
         return {"error": str(e)}
