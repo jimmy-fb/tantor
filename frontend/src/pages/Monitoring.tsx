@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { BarChart3, Cpu, HardDrive, Activity, RefreshCw, Server, Wifi, Database, Clock, MemoryStick } from 'lucide-react';
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
 import { getClusters, getClusterMetrics } from '../lib/api';
@@ -72,14 +72,16 @@ function MetricCard({ icon: Icon, label, value, sub }: { icon: typeof Cpu; label
   );
 }
 
-function LiveChart({ data, dataKey, color, label, unit = '%', max }: {
+function LiveChart({ data, dataKey, color, label, unit = '%', max, id }: {
   data: TimePoint[];
   dataKey: string;
   color: string;
   label: string;
   unit?: string;
   max?: number;
+  id?: string;
 }) {
+  const gradId = `grad-${id || dataKey}-${dataKey}`;
   const latest = data.length > 0 ? (data[data.length - 1][dataKey] as number) ?? 0 : 0;
   const statusColor = latest > 80 ? 'text-red-600' : latest > 60 ? 'text-yellow-600' : 'text-green-600';
 
@@ -95,7 +97,7 @@ function LiveChart({ data, dataKey, color, label, unit = '%', max }: {
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
             <defs>
-              <linearGradient id={`grad-${dataKey}`} x1="0" y1="0" x2="0" y2="1">
+              <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor={color} stopOpacity={0.3} />
                 <stop offset="95%" stopColor={color} stopOpacity={0.05} />
               </linearGradient>
@@ -113,7 +115,7 @@ function LiveChart({ data, dataKey, color, label, unit = '%', max }: {
               dataKey={dataKey}
               stroke={color}
               strokeWidth={2}
-              fill={`url(#grad-${dataKey})`}
+              fill={`url(#${gradId})`}
               isAnimationActive={false}
               dot={false}
             />
@@ -133,7 +135,7 @@ export default function Monitoring() {
   const [autoRefresh, setAutoRefresh] = useState(true); // ON by default
   const [error, setError] = useState<string | null>(null);
   // Time-series history per node: { hostId: TimePoint[] }
-  const historyRef = useRef<Record<string, TimePoint[]>>({});
+  const [history, setHistory] = useState<Record<string, TimePoint[]>>({});
 
   useEffect(() => {
     getClusters().then((data: Cluster[]) => {
@@ -151,28 +153,29 @@ export default function Monitoring() {
       const data = await getClusterMetrics(selectedCluster);
       setMetrics(data);
 
-      // Append to time-series history
+      // Append to time-series history (new object to trigger re-render)
       const now = new Date();
       const timeLabel = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      for (const node of data.nodes) {
-        const key = node.host_id;
-        if (!historyRef.current[key]) historyRef.current[key] = [];
-        const history = historyRef.current[key];
-        history.push({
-          time: timeLabel,
-          timestamp: now.getTime(),
-          cpu: node.system.cpu_usage_pct ?? 0,
-          memory: node.system.memory_usage_pct ?? 0,
-          disk: node.disk.data?.usage_pct ?? node.disk.root?.usage_pct ?? 0,
-          connections: node.kafka.connections ?? 0,
-          kafkaMemory: node.kafka.memory_rss_mb ?? 0,
-          load1m: node.system.load_1m ?? 0,
-        });
-        // Keep only last MAX_HISTORY points
-        if (history.length > MAX_HISTORY) {
-          historyRef.current[key] = history.slice(-MAX_HISTORY);
+      setHistory(prev => {
+        const next = { ...prev };
+        for (const node of data.nodes) {
+          const key = node.host_id;
+          const existing = next[key] ? [...next[key]] : [];
+          existing.push({
+            time: timeLabel,
+            timestamp: now.getTime(),
+            cpu: node.system.cpu_usage_pct ?? 0,
+            memory: node.system.memory_usage_pct ?? 0,
+            disk: node.disk.data?.usage_pct ?? node.disk.root?.usage_pct ?? 0,
+            connections: node.kafka.connections ?? 0,
+            kafkaMemory: node.kafka.memory_rss_mb ?? 0,
+            load1m: node.system.load_1m ?? 0,
+          });
+          // Keep only last MAX_HISTORY points
+          next[key] = existing.length > MAX_HISTORY ? existing.slice(-MAX_HISTORY) : existing;
         }
-      }
+        return next;
+      });
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
       if (!silent) setError(msg || 'Failed to fetch metrics. Check cluster connectivity.');
@@ -182,7 +185,7 @@ export default function Monitoring() {
 
   useEffect(() => {
     if (selectedCluster) {
-      historyRef.current = {}; // Reset history on cluster change
+      setHistory({}); // Reset history on cluster change
       fetchMetrics();
     }
   }, [selectedCluster, fetchMetrics]);
@@ -272,7 +275,7 @@ export default function Monitoring() {
 
       {/* Nodes */}
       {metrics?.nodes.map(node => {
-        const history = historyRef.current[node.host_id] || [];
+        const nodeHistory = history[node.host_id] || [];
 
         return (
           <div key={node.host_id} className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
@@ -301,9 +304,9 @@ export default function Monitoring() {
                   {autoRefresh && <span className="text-[10px] text-green-600 bg-green-50 px-2 py-0.5 rounded-full font-normal">LIVE</span>}
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <LiveChart data={history} dataKey="cpu" color="#3b82f6" label="CPU Usage" max={100} />
-                  <LiveChart data={history} dataKey="memory" color="#10b981" label="Memory Usage" max={100} />
-                  <LiveChart data={history} dataKey="connections" color="#8b5cf6" label="Kafka Connections" unit="" />
+                  <LiveChart data={nodeHistory} dataKey="cpu" color="#3b82f6" label="CPU Usage" max={100} id={node.host_id} />
+                  <LiveChart data={nodeHistory} dataKey="memory" color="#10b981" label="Memory Usage" max={100} id={node.host_id} />
+                  <LiveChart data={nodeHistory} dataKey="connections" color="#8b5cf6" label="Kafka Connections" unit="" id={node.host_id} />
                 </div>
               </div>
 
