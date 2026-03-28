@@ -68,11 +68,12 @@ class LdapService:
 
             # Step 2: Search for user
             search_filter = config.user_search_filter.replace("{username}", username)
+            # Use '*' to fetch all attributes — safe for both AD and OpenLDAP
             service_conn.search(
                 search_base=config.user_search_base,
                 search_filter=search_filter,
                 search_scope=SUBTREE,
-                attributes=["distinguishedName", "cn", "displayName", "memberOf", "uid", "sAMAccountName"],
+                attributes=["*"],
             )
 
             if not service_conn.entries:
@@ -127,7 +128,7 @@ class LdapService:
                         search_base=config.group_search_base,
                         search_filter=f"(|(member={user_dn})(uniqueMember={user_dn}))",
                         search_scope=SUBTREE,
-                        attributes=["dn"],
+                        attributes=["cn"],
                     )
                     groups = [str(entry.entry_dn) for entry in group_conn.entries]
                     group_conn.unbind()
@@ -187,7 +188,7 @@ class LdapService:
                 search_base=config.user_search_base,
                 search_filter=ldap_filter,
                 search_scope=SUBTREE,
-                attributes=["cn", "displayName", "uid", "sAMAccountName", "mail"],
+                attributes=["*"],
                 size_limit=100,
             )
 
