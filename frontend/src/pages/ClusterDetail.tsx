@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   Play, Square, RefreshCw, Rocket, Loader2,
-  List, Users, Send, Plug, Monitor, ScrollText, Download, Shield,
-  ShieldCheck, PlusCircle, Trash2, AlertTriangle, CheckCircle, XCircle, Database,
-  Settings, RotateCw, ArrowUpCircle, Shuffle,
+  Monitor, ScrollText, Globe, PlusCircle, Trash2,
+  AlertTriangle, CheckCircle, XCircle, Settings,
+  RotateCw, ArrowUpCircle, Shuffle, ShieldCheck, ExternalLink,
 } from 'lucide-react';
 import type { ClusterDetail as ClusterDetailType, ServiceStatus, ValidationStep, Host } from '../types';
 import {
@@ -13,18 +13,11 @@ import {
 } from '../lib/api';
 import { useDeploymentLogs } from '../hooks/useWebSocket';
 import TerminalOutput from '../components/terminal/TerminalOutput';
-import TopicManager from '../components/clusters/TopicManager';
-import ConsumerGroups from '../components/clusters/ConsumerGroups';
-import ProduceMessage from '../components/clusters/ProduceMessage';
-import ConsumeMessages from '../components/clusters/ConsumeMessages';
-import ConnectManager from '../components/clusters/ConnectManager';
-import SecurityManager from '../components/clusters/SecurityManager';
-import KsqlManager from '../components/clusters/KsqlManager';
-import ServiceLogs from '../components/clusters/ServiceLogs';
 import BrokerConfigManager from '../components/clusters/BrokerConfigManager';
 import RollingRestart from '../components/clusters/RollingRestart';
 import UpgradeManager from '../components/clusters/UpgradeManager';
 import PartitionRebalance from '../components/clusters/PartitionRebalance';
+import ServiceLogs from '../components/clusters/ServiceLogs';
 
 const ROLE_LABELS: Record<string, string> = {
   broker: 'Broker',
@@ -52,7 +45,7 @@ const ROLES = [
   { id: 'kafka_connect', label: 'Kafka Connect' },
 ];
 
-type Tab = 'overview' | 'topics' | 'consumers' | 'produce' | 'consume' | 'connect' | 'security' | 'ksqldb' | 'validate' | 'logs' | 'service-logs' | 'config' | 'restart' | 'upgrade' | 'rebalance';
+type Tab = 'overview' | 'kafka-ui' | 'validate' | 'config' | 'rebalance' | 'restart' | 'upgrade' | 'service-logs' | 'logs';
 
 export default function ClusterDetail() {
   const { id } = useParams<{ id: string }>();
@@ -87,6 +80,13 @@ export default function ClusterDetail() {
   useEffect(() => {
     fetchDetail();
   }, [id]);
+
+  // Auto-switch to kafka-ui tab once cluster is running
+  useEffect(() => {
+    if (detail?.cluster.state === 'running' && activeTab === 'overview') {
+      // Keep overview as default so user sees services first
+    }
+  }, [detail]);
 
   const handleDeploy = async () => {
     if (!id) return;
@@ -192,18 +192,10 @@ export default function ClusterDetail() {
 
   const { cluster, services } = detail;
   const isRunning = cluster.state === 'running';
-  const hasConnect = services.some(s => s.role === 'kafka_connect');
-  const hasKsqldb = services.some(s => s.role === 'ksqldb');
 
-  const tabs: Array<{ id: Tab; label: string; icon: React.ReactNode; requiresRunning?: boolean; requiresConnect?: boolean; requiresKsqldb?: boolean }> = [
+  const tabs: Array<{ id: Tab; label: string; icon: React.ReactNode; requiresRunning?: boolean }> = [
     { id: 'overview', label: 'Overview', icon: <Monitor size={14} /> },
-    { id: 'topics', label: 'Topics', icon: <List size={14} />, requiresRunning: true },
-    { id: 'consume', label: 'Consume', icon: <Download size={14} />, requiresRunning: true },
-    { id: 'produce', label: 'Produce', icon: <Send size={14} />, requiresRunning: true },
-    { id: 'consumers', label: 'Groups', icon: <Users size={14} />, requiresRunning: true },
-    { id: 'connect', label: 'Connect', icon: <Plug size={14} />, requiresRunning: true, requiresConnect: true },
-    { id: 'ksqldb', label: 'ksqlDB', icon: <Database size={14} />, requiresRunning: true, requiresKsqldb: true },
-    { id: 'security', label: 'Security', icon: <Shield size={14} />, requiresRunning: true },
+    { id: 'kafka-ui', label: 'Kafka UI', icon: <Globe size={14} />, requiresRunning: true },
     { id: 'validate', label: 'Validate', icon: <ShieldCheck size={14} />, requiresRunning: true },
     { id: 'config', label: 'Config', icon: <Settings size={14} />, requiresRunning: true },
     { id: 'rebalance', label: 'Rebalance', icon: <Shuffle size={14} />, requiresRunning: true },
@@ -215,13 +207,14 @@ export default function ClusterDetail() {
 
   const visibleTabs = tabs.filter(t => {
     if (t.requiresRunning && !isRunning) return false;
-    if (t.requiresConnect && !hasConnect) return false;
-    if (t.requiresKsqldb && !hasKsqldb) return false;
     return true;
   });
 
   // Hosts already in cluster
   const clusterHostIds = new Set(services.map(s => s.host_id));
+
+  // Build kafka-ui URL for this specific cluster
+  const kafkaUiClusterUrl = `/kafka-ui/ui/clusters/${encodeURIComponent(cluster.name)}`;
 
   return (
     <div>
@@ -255,6 +248,11 @@ export default function ClusterDetail() {
           )}
           {(cluster.state === 'running' || cluster.state === 'stopped' || cluster.state === 'error') && (
             <>
+              <button onClick={handleDeploy} disabled={actionLoading !== null}
+                className="flex items-center gap-2 px-3 py-2 bg-orange-600 text-white text-sm rounded-lg hover:bg-orange-700 disabled:opacity-50"
+                title="Re-deploy the cluster">
+                {actionLoading === 'deploy' ? <Loader2 size={16} className="animate-spin" /> : <Rocket size={16} />} Re-Deploy
+              </button>
               <button onClick={handleStart} disabled={actionLoading !== null}
                 className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 disabled:opacity-50">
                 {actionLoading === 'start' ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />} Start
@@ -424,16 +422,64 @@ export default function ClusterDetail() {
               </tbody>
             </table>
           </div>
+
+          {/* Quick link to Kafka UI when running */}
+          {isRunning && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Globe size={20} className="text-blue-600" />
+                <div>
+                  <p className="text-sm font-medium text-gray-800">Manage Topics, Consumer Groups & Messages</p>
+                  <p className="text-xs text-gray-500">Use the Kafka UI tab to browse and manage your cluster data</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setActiveTab('kafka-ui')}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
+                >
+                  <Globe size={16} /> Open Kafka UI
+                </button>
+                <a
+                  href={kafkaUiClusterUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-3 py-2 border border-blue-300 text-blue-700 text-sm rounded-lg hover:bg-blue-100"
+                >
+                  <ExternalLink size={16} /> New Tab
+                </a>
+              </div>
+            </div>
+          )}
         </>
       )}
 
-      {activeTab === 'topics' && id && <TopicManager clusterId={id} />}
-      {activeTab === 'consume' && id && <ConsumeMessages clusterId={id} />}
-      {activeTab === 'produce' && id && <ProduceMessage clusterId={id} />}
-      {activeTab === 'consumers' && id && <ConsumerGroups clusterId={id} />}
-      {activeTab === 'connect' && id && <ConnectManager clusterId={id} />}
-      {activeTab === 'security' && id && <SecurityManager clusterId={id} />}
-      {activeTab === 'ksqldb' && id && <KsqlManager clusterId={id} />}
+      {/* Kafka UI - embedded kafbat/kafka-ui for this cluster */}
+      {activeTab === 'kafka-ui' && isRunning && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm text-gray-500">
+              Topics, Consumer Groups, Messages, Schemas, ACLs, and Connectors
+            </p>
+            <a
+              href={kafkaUiClusterUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              <ExternalLink size={14} /> Open in New Tab
+            </a>
+          </div>
+          <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm" style={{ height: 'calc(100vh - 220px)' }}>
+            <iframe
+              src={kafkaUiClusterUrl}
+              className="w-full h-full border-0"
+              title={`Kafka UI - ${cluster.name}`}
+            />
+          </div>
+        </div>
+      )}
+
       {activeTab === 'config' && id && <BrokerConfigManager clusterId={id} />}
       {activeTab === 'restart' && id && <RollingRestart clusterId={id} />}
       {activeTab === 'rebalance' && id && <PartitionRebalance clusterId={id} />}
@@ -458,10 +504,8 @@ export default function ClusterDetail() {
             </button>
           </div>
 
-          {/* Validation Results */}
           {validationSteps.length > 0 && (
             <div className="space-y-3">
-              {/* Overall result */}
               <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${
                 validationSuccess === true ? 'bg-green-50 border-green-200' :
                 validationSuccess === false ? 'bg-red-50 border-red-200' :
@@ -481,7 +525,6 @@ export default function ClusterDetail() {
                 </span>
               </div>
 
-              {/* Step by step */}
               {validationSteps.map((step, i) => (
                 <div key={i} className="bg-white border rounded-lg px-4 py-3">
                   <div className="flex items-center gap-3">
@@ -497,7 +540,6 @@ export default function ClusterDetail() {
                       <p className="text-xs text-gray-500 mt-0.5">{step.message}</p>
                     </div>
                   </div>
-                  {/* Show consumed messages data if present */}
                   {step.data && step.step === 'consume_message' && Array.isArray(step.data) && (
                     <div className="mt-2 ml-7 space-y-1">
                       {(step.data as Array<Record<string, unknown>>).slice(0, 3).map((msg, j) => (

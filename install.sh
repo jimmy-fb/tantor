@@ -156,6 +156,7 @@ install_deps_debian() {
     apt-get update -qq
     apt-get install -y -qq \
         python3 python3-pip python3-venv python3-full \
+        openjdk-21-jre-headless \
         nginx \
         openssh-client sshpass \
         wget curl jq gnupg ca-certificates net-tools \
@@ -189,6 +190,7 @@ install_deps_rhel() {
     fi
 
     dnf install -y -q \
+        java-21-openjdk-headless \
         nginx \
         openssh-clients sshpass \
         wget curl jq ca-certificates net-tools \

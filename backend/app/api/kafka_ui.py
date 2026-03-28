@@ -167,7 +167,7 @@ def sync_local_kafka_ui(
 
         # Restart the local kafka-ui service
         import subprocess
-        subprocess.run(["systemctl", "restart", "tantor-kafka-ui"], capture_output=True, timeout=10)
+        subprocess.run(["sudo", "systemctl", "restart", "tantor-kafka-ui"], capture_output=True, timeout=10)
     except Exception as e:
         logger.warning("Failed to sync local kafka-ui: %s", e)
         raise HTTPException(status_code=500, detail=str(e))

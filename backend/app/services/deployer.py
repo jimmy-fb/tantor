@@ -58,7 +58,7 @@ def _sync_local_kafka_ui(db: Session):
             "logging": {"level": {"root": "WARN", "io.kafbat.ui": "INFO"}},
         }
         config_path.write_text(yaml.dump(config, default_flow_style=False))
-        subprocess.run(["systemctl", "restart", "tantor-kafka-ui"], capture_output=True, timeout=10)
+        subprocess.run(["sudo", "systemctl", "restart", "tantor-kafka-ui"], capture_output=True, timeout=10)
     except Exception as e:
         logger.warning("Failed to sync local kafka-ui: %s", e)
 
@@ -371,6 +371,7 @@ def _run_ansible_deployment(
             svc.status = "running"
         cluster.state = "running"
         _deployment_tasks[task_id]["status"] = "completed"
+        db.commit()
         _log(task_id, "")
         _log(task_id, "Deployment completed successfully!")
 
@@ -385,7 +386,7 @@ def _run_ansible_deployment(
         _deployment_tasks[task_id]["status"] = "completed_with_errors"
         _log(task_id, "")
         _log(task_id, f"Deployment failed (ansible exit code: {exit_code})")
-    db.commit()
+        db.commit()
 
     # Cleanup
     ansible_runner.cleanup_workspace(work_dir)
