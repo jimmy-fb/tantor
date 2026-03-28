@@ -19,7 +19,10 @@ import type {
   LogResponse,
 } from '../types';
 
-const api = axios.create({ baseURL: '/api' });
+const api = axios.create({
+  baseURL: '/api',
+  headers: { 'Cache-Control': 'no-cache' },
+});
 
 // ── Request interceptor: attach JWT token ────────────
 api.interceptors.request.use((config) => {

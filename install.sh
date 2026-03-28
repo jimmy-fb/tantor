@@ -340,7 +340,7 @@ NGINX_CONF='server {
         proxy_read_timeout 86400;
     }
 
-    location /grafana/ {
+    location ^~ /grafana/ {
         proxy_pass http://127.0.0.1:3000/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -348,7 +348,7 @@ NGINX_CONF='server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    location /kafka-ui/ {
+    location ^~ /kafka-ui/ {
         proxy_pass http://127.0.0.1:8989/kafka-ui/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -358,6 +358,9 @@ NGINX_CONF='server {
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_read_timeout 86400;
+        # Allow embedding kafka-ui in iframes within Tantor
+        proxy_hide_header X-Frame-Options;
+        proxy_hide_header Content-Security-Policy;
     }
 
     location / {

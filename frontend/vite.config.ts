@@ -11,6 +11,16 @@ export default defineConfig({
         changeOrigin: true,
         ws: true,
       },
+      '/kafka-ui': {
+        target: 'http://localhost:8989',
+        changeOrigin: true,
+        configure: (proxy) => {
+          proxy.on('proxyRes', (proxyRes) => {
+            delete proxyRes.headers['x-frame-options'];
+            delete proxyRes.headers['content-security-policy'];
+          });
+        },
+      },
     },
   },
 })
