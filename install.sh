@@ -156,7 +156,6 @@ install_deps_debian() {
     apt-get update -qq
     apt-get install -y -qq \
         python3 python3-pip python3-venv python3-full \
-        openjdk-21-jre-headless \
         nginx \
         openssh-client sshpass \
         wget curl jq gnupg ca-certificates net-tools \
@@ -190,7 +189,6 @@ install_deps_rhel() {
     fi
 
     dnf install -y -q \
-        java-21-openjdk-headless \
         nginx \
         openssh-clients sshpass \
         wget curl jq ca-certificates net-tools \
@@ -348,21 +346,6 @@ NGINX_CONF='server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    location ^~ /kafka-ui/ {
-        proxy_pass http://127.0.0.1:8989/kafka-ui/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_read_timeout 86400;
-        # Allow embedding kafka-ui in iframes within Tantor
-        proxy_hide_header X-Frame-Options;
-        proxy_hide_header Content-Security-Policy;
-    }
-
     location / {
         try_files $uri $uri/ /index.html;
     }
@@ -432,76 +415,7 @@ chown -R "${TANTOR_USER}:${TANTOR_USER}" /home/${TANTOR_USER}
 chmod 700 /home/${TANTOR_USER}/.ssh
 chmod 600 /home/${TANTOR_USER}/.ssh/id_rsa 2>/dev/null || true
 
-# Setup Kafka UI (kafbat/kafka-ui) as a local service
-KAFKA_UI_DIR="$TANTOR_HOME/kafka-ui"
-KAFKA_UI_JAR="$KAFKA_UI_DIR/kafka-ui.jar"
-KAFKA_UI_VERSION="1.4.2"
-KAFKA_UI_URL="https://github.com/kafbat/kafka-ui/releases/download/v${KAFKA_UI_VERSION}/api-v${KAFKA_UI_VERSION}.jar"
-
-mkdir -p "$KAFKA_UI_DIR" "$TANTOR_LOG/kafka-ui"
-
-if [ -f "$KAFKA_UI_JAR" ]; then
-    echo -e "${GREEN}✓ Kafka UI jar already present${NC}"
-else
-    echo -e "${YELLOW}  Downloading Kafka UI v${KAFKA_UI_VERSION} (~137 MB)...${NC}"
-    if curl -fSL --connect-timeout 15 --max-time 600 --progress-bar -o "$KAFKA_UI_JAR" "$KAFKA_UI_URL"; then
-        echo -e "${GREEN}✓ Kafka UI downloaded${NC}"
-    else
-        echo -e "${YELLOW}⚠ Kafka UI download failed. It can be added later.${NC}"
-        rm -f "$KAFKA_UI_JAR"
-    fi
-fi
-
-# Default kafka-ui config (no clusters configured yet — will be synced on first deploy)
-cat > "$KAFKA_UI_DIR/config.yml" << 'KUIEOF'
-kafka:
-  clusters: []
-dynamic:
-  config:
-    enabled: true
-server:
-  port: 8989
-  servlet:
-    context-path: /kafka-ui
-auth:
-  type: DISABLED
-logging:
-  level:
-    root: WARN
-    io.kafbat.ui: INFO
-KUIEOF
-
-# Kafka UI systemd service
-if [ -f "$KAFKA_UI_JAR" ]; then
-    # Find java
-    JAVA_BIN=$(which java 2>/dev/null || echo "/usr/bin/java")
-    cat > /etc/systemd/system/tantor-kafka-ui.service << KUISEOF
-[Unit]
-Description=Tantor Kafka UI (kafbat-ui)
-After=network.target tantor-backend.service
-Wants=tantor-backend.service
-
-[Service]
-Type=simple
-User=tantor
-Group=tantor
-WorkingDirectory=$KAFKA_UI_DIR
-ExecStart=$JAVA_BIN --add-opens java.rmi/javax.rmi.ssl=ALL-UNNAMED -jar $KAFKA_UI_JAR --spring.config.additional-location=$KAFKA_UI_DIR/config.yml
-Restart=on-failure
-RestartSec=10
-StandardOutput=append:$TANTOR_LOG/kafka-ui/stdout.log
-StandardError=append:$TANTOR_LOG/kafka-ui/stderr.log
-LimitNOFILE=65536
-TimeoutStopSec=30
-
-[Install]
-WantedBy=multi-user.target
-KUISEOF
-    systemctl daemon-reload
-    systemctl enable tantor-kafka-ui >/dev/null 2>&1
-fi
-
-echo -e "${GREEN}✓ Nginx, systemd, SSH, and Kafka UI configured${NC}"
+echo -e "${GREEN}✓ Nginx, systemd, and SSH configured${NC}"
 
 # ─── Step 9: Start Services ───
 echo -e "${BLUE}▶ Step 9/9: Starting services...${NC}"
@@ -511,9 +425,6 @@ chmod -R o+r "$TANTOR_HOME/frontend/dist"
 
 systemctl restart nginx
 systemctl restart tantor-backend
-if [ -f "$KAFKA_UI_JAR" ]; then
-    systemctl restart tantor-kafka-ui 2>/dev/null || true
-fi
 
 # Wait for health
 echo -n "  Waiting for Tantor to start"

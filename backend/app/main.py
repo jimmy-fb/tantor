@@ -9,7 +9,7 @@ from app.config import settings
 from app.database import Base, engine, SessionLocal
 from app.api import (
     hosts, clusters, ws, versions, topics, kafka_connect, security, ksqldb,
-    auth, logs, monitoring, broker_config, rolling_restart, kafka_ui,
+    auth, logs, monitoring, broker_config, rolling_restart,
     upgrades, security_scan, cluster_linking, rebalance, ldap,
 )
 from app.models.kafka_user import KafkaUser  # noqa: F401 - ensure table creation
@@ -18,7 +18,7 @@ from app.models.query_history import QueryHistory  # noqa: F401 - ensure table c
 from app.models.user import User  # noqa: F401 - ensure table creation
 from app.models.monitoring import MonitoringConfig  # noqa: F401 - ensure table creation
 from app.models.config_audit import ConfigAuditLog  # noqa: F401 - ensure table creation
-from app.models.kafka_ui_config import KafkaUIConfig  # noqa: F401 - ensure table creation
+
 from app.models.cluster_link import ClusterLink  # noqa: F401 - ensure table creation
 from app.models.ldap_config import LdapConfig  # noqa: F401 - ensure table creation
 from app.services.auth_service import AuthService
@@ -85,7 +85,7 @@ app.include_router(logs.router)
 app.include_router(monitoring.router)
 app.include_router(broker_config.router)
 app.include_router(rolling_restart.router)
-app.include_router(kafka_ui.router)
+
 app.include_router(upgrades.router)
 app.include_router(security_scan.router)
 app.include_router(cluster_linking.router)

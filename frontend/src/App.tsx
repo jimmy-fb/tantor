@@ -10,7 +10,7 @@ import ClusterDetail from './pages/ClusterDetail';
 import KafkaVersions from './pages/KafkaVersions';
 import UserManagement from './pages/UserManagement';
 import Monitoring from './pages/Monitoring';
-import KafkaExplorer from './pages/KafkaExplorer';
+
 import SecurityScan from './pages/SecurityScan';
 import ClusterLinking from './pages/ClusterLinking';
 import LdapSettings from './pages/LdapSettings';
@@ -30,7 +30,7 @@ export default function App() {
             <Route path="/versions" element={<KafkaVersions />} />
             <Route path="/users" element={<UserManagement />} />
             <Route path="/monitoring" element={<Monitoring />} />
-            <Route path="/kafka-explorer" element={<KafkaExplorer />} />
+
             <Route path="/security-scan" element={<SecurityScan />} />
             <Route path="/cluster-linking" element={<ClusterLinking />} />
             <Route path="/ldap-settings" element={<LdapSettings />} />
